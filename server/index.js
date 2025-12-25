@@ -61,7 +61,7 @@ app.get("/v1/miners", (req, res) => {
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
     .map((m) => ({
       ...m,
-      history: (historyStore.get(m.id) || []).slice(-2500),
+      history: (historyStore.get(m.id) || []).slice(-HISTORY_MAX_POINTS),
     }));
 
   res.json({ miners });
@@ -642,7 +642,7 @@ extraHtml =
 
           '<div class="hero">' +
             '<div>' +
-              '<div class="hk">Current Hashrate</div>' +
+              '<div class="hk">Real Hashrate</div>' +
               '<div class="hv hashNum">' + (heroHash==null ? "â€”" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
