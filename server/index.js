@@ -1,11 +1,11 @@
-import express from "express";
-import cors from "cors";
+const express = require("express");
+const cors = require("cors");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1024kb" }));
 
-// Set this in Render/Env: API_KEY=<your secret>
+// Set this in Render Environment: API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
 
 function auth(req, res, next) {
@@ -15,7 +15,7 @@ function auth(req, res, next) {
   next();
 }
 
-// In-memory stores (simple + fast)
+// In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 6000;
@@ -27,18 +27,19 @@ function clampHistory(id) {
 
 app.post("/v1/ingest", auth, (req, res) => {
   try {
-    const miners = req.body?.miners || [];
+    const miners = (req.body && req.body.miners) ? req.body.miners : [];
     const now = Date.now();
 
     for (const m of miners) {
-      const id = String(m?.id || "").trim();
+      const id = String((m && m.id) || "").trim();
       if (!id) continue;
 
-      const name = String(m?.name || id);
-      const ts = Number(m?.metrics?.ts ?? now);
+      const name = String((m && m.name) || id);
+      const tsRaw = m && m.metrics ? m.metrics.ts : undefined;
+      const ts = Number(tsRaw ?? now);
       const safeTs = Number.isFinite(ts) ? ts : now;
 
-      const metrics = m?.metrics || {};
+      const metrics = (m && m.metrics) ? m.metrics : {};
       minersStore.set(id, { id, name, last_ts: safeTs, metrics });
 
       const point = { ts: safeTs, ...metrics };
@@ -92,12 +93,11 @@ app.get("/", (req, res) => {
     --c4:#3B576D;
     --c5:#8AA2A2;
 
-    /* Light theme defaults (clean + readable) */
+    /* Light theme (default) */
     --bg: #F6FAFA;
     --panel: #FFFFFF;
     --panel2: #F1F7F7;
     --ink: var(--c3);
-    --mut: var(--c2);
     --mut2: var(--c4);
     --line: rgba(29,43,56,.16);
 
@@ -122,7 +122,6 @@ app.get("/", (req, res) => {
     --panel: #121E28;
     --panel2: #0F1A22;
     --ink: #E7F0F0;
-    --mut: #CFE0E0;
     --mut2: var(--c5);
     --line: rgba(138,162,162,.18);
 
@@ -151,9 +150,8 @@ app.get("/", (req, res) => {
 
   header{
     position:sticky; top:0; z-index:20;
-    background: color-mix(in oklab, var(--bg), #fff 8%);
+    background:var(--bg);
     border-bottom:1px solid var(--line);
-    backdrop-filter: blur(6px);
   }
 
   .wrap{
@@ -194,8 +192,8 @@ app.get("/", (req, res) => {
     font-weight:900;
   }
   .btn.active{
-    border-color: color-mix(in oklab, var(--accent), var(--btnBd) 35%);
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--accent), transparent 82%) inset;
+    border-color: rgba(67,137,129,.55);
+    box-shadow: 0 0 0 2px rgba(67,137,129,.12) inset;
   }
 
   main{
@@ -295,7 +293,7 @@ app.get("/", (req, res) => {
 
   .badge{
     border:1px solid var(--line);
-    background: color-mix(in oklab, var(--panel2), transparent 10%);
+    background:var(--panel2);
     border-radius:999px;
     padding:3px 9px;
     font-size:12px;
@@ -336,8 +334,9 @@ app.get("/", (req, res) => {
     justify-content:space-between;
     gap:12px;
     padding:6px 0;
-    border-bottom:1px dashed color-mix(in oklab, var(--line), transparent 35%);
+    border-bottom:1px dashed rgba(29,43,56,.14);
   }
+  [data-theme="dark"] .row{ border-bottom-color: rgba(138,162,162,.18); }
   .row:last-child{border-bottom:0}
   .k{color:var(--mut2); font-weight:900}
   .v{font-weight:1000; text-align:right}
@@ -557,7 +556,7 @@ app.get("/", (req, res) => {
         row("Last Seen", timeAgo(m.last_ts))
       ].join("");
 
-      // extra rows (only if present) – still clean (no "Details" label)
+      // extra (only if present)
       const extra = [];
       if(poolUrl) extra.push(row("Pool Host", esc(poolUrl), true));
       if(poolPort != null) extra.push(row("Pool Port", fmtInt(poolPort)));
@@ -644,7 +643,6 @@ app.get("/", (req, res) => {
     const ink = css.getPropertyValue("--ink").trim();
     const mut2 = css.getPropertyValue("--mut2").trim();
 
-    // frame
     ctx.strokeStyle = line;
     ctx.lineWidth = 1;
     ctx.strokeRect(padL, padT, w, h);
@@ -674,7 +672,7 @@ app.get("/", (req, res) => {
     const YH = (y)=> padT + h - ((y-minH)/(maxH-minH))*h;
     const YT = (y)=> padT + h - ((y-minT)/(maxT-minT))*h;
 
-    // grid (clearer)
+    // grid
     ctx.strokeStyle = line;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
@@ -714,17 +712,15 @@ app.get("/", (req, res) => {
     ctx.fillStyle = ink;
     ctx.fillText(name, padL, 14);
 
-    // left axis (hash)
+    // axis labels
     ctx.fillStyle = hashLine;
     ctx.fillText(maxH.toFixed(2), 10, padT+12);
     ctx.fillText(minH.toFixed(2), 10, padT+h);
 
-    // right axis (temp)
     ctx.fillStyle = tempLine;
     ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
     ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
 
-    // time labels
     ctx.fillStyle = mut2;
     const leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
@@ -743,29 +739,28 @@ app.get("/", (req, res) => {
 
   function setRange(ms){
     state.rangeMs = ms;
-    document.getElementById("r2h").classList.toggle("active", ms === 2*60*60*1000);
-    document.getElementById("r6h").classList.toggle("active", ms === 6*60*60*1000);
-    document.getElementById("r24h").classList.toggle("active", ms === 24*60*60*1000);
+    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
+    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
+    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
     drawChart();
   }
 
   function applyTheme(theme){
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("mm_theme", theme);
-    document.getElementById("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
+    $("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
     drawChart();
   }
 
-  document.getElementById("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
-  document.getElementById("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
-  document.getElementById("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
-  document.getElementById("themeBtn").addEventListener("click", ()=>{
+  $("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
+  $("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
+  $("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
+  $("themeBtn").addEventListener("click", ()=>{
     const cur = document.documentElement.getAttribute("data-theme") || "light";
     applyTheme(cur === "dark" ? "light" : "dark");
   });
   window.addEventListener("resize", drawChart);
 
-  // light by default
   const saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
