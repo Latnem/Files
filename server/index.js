@@ -344,7 +344,7 @@ app.get("/", (req, res) => {
   .addrLink:hover{ text-decoration:underline; }
 
   /* Prevent long pool address from stretching layout */
-  .rows .val, .rows .val a{
+  .row .rv, .row .rv a{
     overflow-wrap:anywhere;
     word-break:break-word;
   }
@@ -595,7 +595,7 @@ app.get("/", (req, res) => {
         if(poolUser){
         var addr = String(poolUser);
         var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
+        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + '</a>', true);
       }
 extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
