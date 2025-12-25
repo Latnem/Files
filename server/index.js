@@ -336,10 +336,7 @@ app.get("/", (req, res) => {
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
       <div class="headRight">
-        <button class="btn active" id="r2h">2h</button>
-        <button class="btn" id="r6h">6h</button>
-        <button class="btn" id="r24h">24h</button>
-        <div class="seg" id="themeSeg" aria-label="Theme">
+<div class="seg" id="themeSeg" aria-label="Theme">
   <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
   <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
 </div>
@@ -369,7 +366,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><select id="rangeSel" class="rangeSel" aria-label="Chart range"><option value="6h">6h</option><option value="12h">12h</option><option value="24h">24h</option></select></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -378,7 +375,7 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  var state = { miners: [], rangeMs: 2*60*60*1000 };
+  var state = { miners: [], rangeMs: 6*60*60*1000 };
 
   function $(id){ return document.getElementById(id); }
 
@@ -736,6 +733,26 @@ app.get("/", (req, res) => {
     ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
 
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("mm_theme", theme); } catch(e){}
+
+    var dark = (theme === "dark");
+    var bL = $("segLight");
+    var bD = $("segDark");
+
+    // ensure icons are present
+    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
+    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
+
+    if(bL && bD){
+      bL.classList.toggle("sel", !dark);
+      bD.classList.toggle("sel", dark);
+    }
+
+    drawChart();
+  }
+
   function refresh(){
     fetch("/v1/miners", { cache: "no-store" })
       .then(function(r){ return r.json(); })
@@ -748,33 +765,38 @@ app.get("/", (req, res) => {
       .catch(function(){ });
   }
 
-  function setRange(ms){
+    function setRange(ms){
     state.rangeMs = ms;
-    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
-    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
-    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
-    drawChart();
-  }  function applyTheme(theme){
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("mm_theme", theme);
-    var dark = (theme === "dark");
-    var bL = $("segLight");
-    var bD = $("segDark");
-    if(bL && bD){
-      bL.classList.toggle("sel", !dark);
-      bD.classList.toggle("sel", dark);
+    try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
+    var sel = $("rangeSel");
+    if(sel){
+      if(ms === 6*60*60*1000) sel.value = "6h";
+      else if(ms === 12*60*60*1000) sel.value = "12h";
+      else sel.value = "24h";
     }
     drawChart();
   }
-
-  $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
-  $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });window.addEventListener("resize", drawChart);
+    drawChart();
+  }
+window.addEventListener("resize", drawChart);
 
   var saved = localStorage.getItem("mm_theme");
+  // Range init (ms)
+  var savedRange = null;
+  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
+  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
+    state.rangeMs = savedRange;
+  } else {
+    state.rangeMs = 6*60*60*1000;
+  }
   applyTheme(saved === "dark" ? "dark" : "light");
-
-  setInterval(refresh, 5000);
+  // Sync dropdown to current range
+  if($("rangeSel")){
+    if(state.rangeMs === 12*60*60*1000) $("rangeSel").value = "12h";
+    else if(state.rangeMs === 24*60*60*1000) $("rangeSel").value = "24h";
+    else $("rangeSel").value = "6h";
+  }
+setInterval(refresh, 5000);
   refresh();
 </script>
 </body>
