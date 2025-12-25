@@ -17,59 +17,7 @@ function auth(req, res, next) {
 
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
-const historyStore = new Map();
-
-function normalizeMetrics(m){
-  const x = m || {};
-  // Prefer already-normalized keys if present
-  const out = { ...x };
-
-  // Temps (AxeOS style)
-  if(out.asicTempC == null && x.temp != null) out.asicTempC = Number(x.temp);
-  if(out.cpuTempC  == null && x.temp2 != null) out.cpuTempC  = Number(x.temp2);
-  if(out.vrTempC   == null && x.vrTemp != null) out.vrTempC  = Number(x.vrTemp);
-
-  // Power / fan
-  if(out.powerW == null && x.power != null) out.powerW = Number(x.power);
-  if(out.fanRpm == null && x.fanrpm != null) out.fanRpm = Number(x.fanrpm);
-
-  // Shares / uptime
-  if(out.uptimeSec == null && x.uptimeSeconds != null) out.uptimeSec = Number(x.uptimeSeconds);
-  if(out.sharesAccepted == null && x.sharesAccepted != null) out.sharesAccepted = Number(x.sharesAccepted);
-  if(out.sharesRejected == null && x.sharesRejected != null) out.sharesRejected = Number(x.sharesRejected);
-
-  // Best diff
-  if(out.bestDiff == null && x.bestDiff != null) out.bestDiff = Number(x.bestDiff);
-
-  // Pool
-  if(out.stratumURL == null && x.stratumURL != null) out.stratumURL = String(x.stratumURL);
-  if(out.stratumPort == null && x.stratumPort != null) out.stratumPort = Number(x.stratumPort);
-  if(out.stratumUser == null && x.stratumUser != null) out.stratumUser = String(x.stratumUser);
-
-  // Hashrate: AxeOS reports in GH/s (e.g., 2461 = 2.461 TH/s)
-  function ghToTh(v){
-    const n = Number(v);
-    if(!Number.isFinite(n)) return null;
-    return n / 1000;
-  }
-
-  // Main displayed hashrateTh uses 1m if present else current
-  if(out.hashrateTh == null){
-    if(x.hashRate_1m != null) out.hashrateTh = ghToTh(x.hashRate_1m);
-    else if(x.hashRate != null) out.hashrateTh = ghToTh(x.hashRate);
-  }
-  if(out.hashrate10mTh == null && x.hashRate_10m != null) out.hashrate10mTh = ghToTh(x.hashRate_10m);
-  if(out.hashrate1hTh  == null && x.hashRate_1h  != null) out.hashrate1hTh  = ghToTh(x.hashRate_1h);
-
-  // Some agents may already send GH/s as hashrate_gh
-  if(out.hashrateTh == null && x.hashrate_gh != null){
-    const n = Number(x.hashrate_gh);
-    if(Number.isFinite(n)) out.hashrateTh = n / 1000;
-  }
-
-  return out;
-}
-  // id -> [{ts, ...metrics}]
+const historyStore = new Map();  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 6000;
 
 function clampHistory(id) {
@@ -91,8 +39,7 @@ app.post("/v1/ingest", auth, (req, res) => {
       const ts = Number(tsRaw ?? now);
       const safeTs = Number.isFinite(ts) ? ts : now;
 
-      const metricsRaw = (m && m.metrics) ? m.metrics : {};
-      const metrics = normalizeMetrics(metricsRaw);
+      const metrics = (m && m.metrics) ? m.metrics : {};
       minersStore.set(id, { id, name, last_ts: safeTs, metrics });
 
       const point = { ts: safeTs, ...metrics };
@@ -381,12 +328,8 @@ app.get("/", (req, res) => {
   }
 
 
-  .addrLink{
-    color: #1e6fe6;
-    text-decoration: none;
-    font-weight: 1000;
-  }
-  .addrLink:hover{ text-decoration: underline; }
+  .addrLink{ color:#1e6fe6; text-decoration:none; font-weight:1000; }
+  .addrLink:hover{ text-decoration:underline; }
 </style>
 </head>
 
@@ -395,8 +338,7 @@ app.get("/", (req, res) => {
   <div class="wrap">
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
-      <div class="headRight">
-<div class="seg" id="themeSeg" aria-label="Theme">
+      <div class="headRight"><div class="seg" id="themeSeg" aria-label="Theme">
   <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
   <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
 </div>
@@ -426,7 +368,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button type="button" data-range="6h" id="rng6" aria-label="6 hours">6h</button><button type="button" data-range="12h" id="rng12" aria-label="12 hours">12h</button><button type="button" data-range="24h" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button type="button" id="rng6" aria-label="6 hours">6h</button><button type="button" id="rng12" aria-label="12 hours">12h</button><button type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -457,7 +399,11 @@ app.get("/", (req, res) => {
     '</svg>';
   }
 
-  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
+[c];
+    });
+  }
+
+  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
   function fmt(v, d){
     if (d === undefined) d = 2;
@@ -809,7 +755,6 @@ extraHtml =
   function setRange(ms){
     state.rangeMs = ms;
     try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
-
     var b6 = $("rng6"), b12 = $("rng12"), b24 = $("rng24");
     if(b6 && b12 && b24){
       b6.classList.toggle("sel", ms === 6*60*60*1000);
@@ -818,33 +763,17 @@ extraHtml =
     }
     drawChart();
   }
-
     drawChart();
-  }drawChart();
   }
-window.addEventListener("resize", drawChart);
-  // Range segmented (6h / 12h / 24h)
-  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
-  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
+});
+});
+});window.addEventListener("resize", drawChart);
 
   // Theme segmented (icon-only)
   if($("segLight")) $("segLight").innerHTML = iconSun();
   if($("segDark")) $("segDark").innerHTML = iconMoon();
-  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); 
-  // Range init (ms)
-  var savedRange = null;
-  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
-  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
-    state.rangeMs = savedRange;
-  } else {
-    state.rangeMs = 6*60*60*1000;
-  }
-  // Sync segmented selection
-  setRange(state.rangeMs);
-});
+  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
   if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
-
 
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
