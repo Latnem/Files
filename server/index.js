@@ -66,7 +66,7 @@ app.get("/v1/miners", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("HashWatcher-Lite server is running.");
+  res.send("MinerMonitor server is running.");
 });
 
 const PORT = process.env.PORT || 8080;
