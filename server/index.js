@@ -337,6 +337,30 @@ app.get("/", (req, res) => {
     border-radius:16px;
     background:var(--panel);
   }
+
+  .seg{
+    display:flex;
+    border:1px solid var(--line);
+    background:var(--panel2);
+    border-radius:999px;
+    padding:3px;
+    gap:3px;
+  }
+  .seg button{
+    width:38px; height:32px;
+    border-radius:999px;
+    border:0;
+    background:transparent;
+    color:var(--ink);
+    cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .seg button.sel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    box-shadow: 0 10px 22px rgba(18,17,26,.10);
+  }
+
 </style>
 </head>
 
@@ -350,7 +374,10 @@ app.get("/", (req, res) => {
         <button class="btn" id="r6h">6h</button>
         <button class="btn" id="r24h">24h</button>
         <button class="btn" id="styleBtn" title="Toggle palette option">Alt</button>
-        <button class="btn" id="themeBtn" title="Toggle theme">Dark</button>
+        <div class="seg" id="themeSeg" aria-label="Theme">
+  <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
+  <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
+</div>
       </div>
     </div>
   </div>
@@ -392,7 +419,21 @@ app.get("/", (req, res) => {
 
   function esc(str){
     return String(str).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}
+
+  function iconSun(){
+    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>' +
+      '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+    '</svg>';
+  }
+  function iconMoon(){
+    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
+      '<path d="M21 14.5A8.5 8.5 0 0 1 9.5 3a7 7 0 1 0 11.5 11.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  }
+
+[c];
     });
   }
 
@@ -753,12 +794,16 @@ app.get("/", (req, res) => {
     $("r6h").classList.toggle("active", ms === 6*60*60*1000);
     $("r24h").classList.toggle("active", ms === 24*60*60*1000);
     drawChart();
-  }
-
-  function applyTheme(theme){
+  }  function applyTheme(theme){
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("mm_theme", theme);
-    $("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
+    var dark = (theme === "dark");
+    var bL = $("segLight");
+    var bD = $("segDark");
+    if(bL && bD){
+      bL.classList.toggle("sel", !dark);
+      bD.classList.toggle("sel", dark);
+    }
     drawChart();
   }
 
@@ -777,14 +822,7 @@ app.get("/", (req, res) => {
   $("styleBtn").addEventListener("click", function(){
     var cur = document.documentElement.getAttribute("data-style") || "base";
     applyStyle(cur === "alt" ? "base" : "alt");
-  });
-
-  $("themeBtn").addEventListener("click", function(){
-    var cur = document.documentElement.getAttribute("data-theme") || "light";
-    applyTheme(cur === "dark" ? "light" : "dark");
-  });
-
-  window.addEventListener("resize", drawChart);
+  });window.addEventListener("resize", drawChart);
 
   var savedStyle = localStorage.getItem("mm_style");
   applyStyle(savedStyle === "alt" ? "alt" : "base");
