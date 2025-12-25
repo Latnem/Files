@@ -14,7 +14,7 @@ function auth(req, res, next) {
   next();
 }
 
-// Latest + history (in-memory)
+// in-memory
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 4000;
@@ -59,7 +59,7 @@ app.get("/v1/miners", (req, res) => {
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((m) => ({
       ...m,
-      history: (historyStore.get(m.id) || []).slice(-1200),
+      history: (historyStore.get(m.id) || []).slice(-1600),
     }));
 
   res.json({ miners });
@@ -75,101 +75,125 @@ app.get("/", (req, res) => {
   <style>
     :root{
       --bg:#0b0b10; --fg:#e8e8ef; --mut:#a0a3b1;
-      --card:#14151d; --line:#232433; --chip:#1b1c26;
+      --card:#14151d; --line:#232433;
+      --good:#1da45b; --warn:#e0a800;
+      --hash:#8cf2bc; --temp:#9fb3ff;
     }
-    html,body{background:var(--bg);color:var(--fg);font:14px/1.5 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;margin:0}
-    header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line)}
-    .title{font-weight:800;font-size:16px}
-    .controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-    .select{background:#0f1017;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:6px 10px}
-    .btn{background:#0f1017;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:6px 10px;cursor:pointer}
-    main{padding:16px;display:grid;gap:14px}
+    html,body{background:var(--bg);color:var(--fg);font:14px/1.45 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;margin:0}
+    header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+    .title{font-weight:800;font-size:18px;letter-spacing:.2px}
+
+    /* centered, not full width */
+    .wrap{
+      width: min(980px, 92vw);
+      margin: 0 auto;
+    }
+
+    main{padding:14px 0 18px 0;display:grid;gap:14px}
     .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-    .panel h2{margin:0 0 8px 0;font-size:14px}
-    canvas{width:100%;height:220px;border-radius:12px;background:#0f1017;border:1px solid var(--line)}
-    #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-    .top{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:10px}
-    .name{font-weight:800}
-    .id{color:var(--mut);font-weight:400}
+    .panelTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+    .panelTitle h2{margin:0;font-size:14px;font-weight:800}
+    .btnRow{display:flex;gap:8px}
+    .btn{background:#0f1017;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:6px 10px;cursor:pointer}
+    .btn.active{border-color:#2d9d6e; box-shadow:0 0 0 1px rgba(45,157,110,.25) inset}
+
+    canvas{width:100%;height:260px;border-radius:12px;background:#0f1017;border:1px solid var(--line)}
+
+    /* 2 columns grid like HashWatcher feel */
+    #grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+      gap:12px;
+    }
+    @media (max-width: 860px){
+      #grid{grid-template-columns:1fr;}
+      canvas{height:240px;}
+    }
+
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
+    .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+    .name{font-weight:900}
+    .sub{color:var(--mut);font-size:12px;margin-top:2px}
     .badge{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a2b3c}
     .online{background:rgba(29,164,91,.15);color:#8cf2bc;border-color:#1da45b}
     .stale{background:rgba(224,168,0,.15);color:#ffe28a;border-color:#e0a800}
 
-    /* 2-column, 10 total items (5 left + 5 right) */
-    .twoCol{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:12px;
-    }
+    .twoCol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .col{display:flex;flex-direction:column}
-    .row{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed #24263a}
+    .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed #24263a}
     .row:last-child{border-bottom:0}
     .k{color:var(--mut)}
+    .v{font-weight:800}
+    .big{font-size:20px;font-weight:950}
+    .hash{color:var(--hash)}
+    .temp{color:var(--temp)}
+    .okDot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--good);margin-right:6px;transform:translateY(-1px)}
+    .warnDot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--warn);margin-right:6px;transform:translateY(-1px)}
     .empty{color:var(--mut);padding:16px;border:1px dashed #2a2b3c;border-radius:14px}
   </style>
 </head>
 <body>
   <header>
-    <div class="title">MinerMonitor</div>
-    <div class="controls">
-      <select id="metricSelect" class="select" title="Chart metric">
-        <option value="hashrate1mTh">Hashrate 1m (TH/s)</option>
-        <option value="hashrateTh">Hashrate inst (TH/s)</option>
-        <option value="hashrate10mTh">Hashrate 10m (TH/s)</option>
-        <option value="hashrate1hTh">Hashrate 1h (TH/s)</option>
-        <option value="cpuTempC">CPU Temp (°C)</option>
-        <option value="asicTempC">ASIC Temp (°C)</option>
-        <option value="vrTempC">VR Temp (°C)</option>
-        <option value="powerW">Power (W)</option>
-        <option value="fanRpm">Fan RPM</option>
-        <option value="sharesAccepted">Shares Accepted</option>
-        <option value="sharesRejected">Shares Rejected</option>
-        <option value="rejectRatePct">Reject Rate (%)</option>
-      </select>
-
-      <button class="btn" id="btn2h">2h</button>
-      <button class="btn" id="btn6h">6h</button>
-      <button class="btn" id="btn24h">24h</button>
+    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div class="title">MinerMonitor</div>
+      <div class="btnRow">
+        <button class="btn active" id="r2h">2h</button>
+        <button class="btn" id="r6h">6h</button>
+        <button class="btn" id="r24h">24h</button>
+      </div>
     </div>
   </header>
 
-  <main>
-    <div class="panel">
-      <h2>Charts</h2>
-      <canvas id="chart"></canvas>
-    </div>
+  <div class="wrap">
+    <main>
+      <div class="panel">
+        <div class="panelTitle">
+          <h2>Hashrate & Temp</h2>
+        </div>
+        <canvas id="chart"></canvas>
+      </div>
 
-    <div id="grid"></div>
-  </main>
+      <div id="grid"></div>
+    </main>
+  </div>
 
 <script>
   const state = {
     miners: [],
-    rangeMs: 2*60*60*1000,
-    chartMetric: "hashrate1mTh"
+    rangeMs: 2*60*60*1000
   };
 
   const $ = (id)=>document.getElementById(id);
+
+  // ---- Helpers ----
+  function esc(str){
+    return String(str).replace(/[&<>\"']/g, c => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    }[c]));
+  }
+
+  function online(lastTs){
+    return (Date.now() - (lastTs||0)) < 60000;
+  }
 
   function fmt(v, d=2){
     if(v === null || v === undefined) return "—";
     const n = Number(v);
     if(Number.isFinite(n)) return n.toFixed(d);
-    return String(v);
+    return "—";
   }
 
   function fmtInt(v){
     if(v === null || v === undefined) return "—";
     const n = Number(v);
     if(Number.isFinite(n)) return String(Math.round(n));
-    return String(v);
+    return "—";
   }
 
   function fmtUptime(sec){
-    if(!sec || !Number.isFinite(Number(sec))) return "—";
-    sec = Number(sec);
-    const d=Math.floor(sec/86400), h=Math.floor((sec%86400)/3600), m=Math.floor((sec%3600)/60);
+    const n = Number(sec);
+    if(!Number.isFinite(n) || n <= 0) return "—";
+    const d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return \`\${d}d \${h}h \${m}m\`;
   }
 
@@ -183,20 +207,22 @@ app.get("/", (req, res) => {
     const d=Math.floor(h/24); return d+"d";
   }
 
-  function esc(str){
-    return String(str).replace(/[&<>\"']/g, c => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[c]));
+  // Fix TH/s display:
+  // If the value looks like 2442, it is GH/s (from AxeOS) and should be 2.442 TH/s.
+  // If it already looks like 2.44, it stays 2.44.
+  function toThSmart(v){
+    const n = Number(v);
+    if(!Number.isFinite(n)) return null;
+    // heuristic: anything > 50 is almost certainly in GH/s, not TH/s
+    if(n > 50) return n / 1000;
+    return n;
   }
 
-  function online(lastTs){
-    return (Date.now() - (lastTs||0)) < 60000;
+  function row(k, vHtml){
+    return \`<div class="row"><span class="k">\${k}</span><span class="v">\${vHtml}</span></div>\`;
   }
 
-  function row(k, v){
-    return \`<div class="row"><span class="k">\${k}</span><b>\${v}</b></div>\`;
-  }
-
+  // ---- Cards ----
   function renderCards(){
     const el = $("grid");
     if(!state.miners.length){
@@ -206,31 +232,50 @@ app.get("/", (req, res) => {
 
     el.innerHTML = state.miners.map(m => {
       const x = m.metrics || {};
-      const badgeClass = online(m.last_ts) ? "badge online" : "badge stale";
-      const badgeText = online(m.last_ts) ? "online" : "stale";
+      const isOn = online(m.last_ts);
 
-      // EXACTLY 10 items total (5 left + 5 right)
+      const badgeClass = isOn ? "badge online" : "badge stale";
+      const dot = isOn ? '<span class="okDot"></span>' : '<span class="warnDot"></span>';
+      const badgeText = isOn ? "Mining" : "Stale";
+
+      // IMPORTANT (compact) — like HashWatcher vibe
+      const hr1m = toThSmart(x.hashrate1mTh ?? x.hashrate1mGh ?? x.hashrate1m ?? x.hashrate_1m);
+      const hrNow = toThSmart(x.hashrateTh ?? x.hashrateGh ?? x.hashrate ?? x.hashRate);
+      const cpu = (x.cpuTempC ?? x.tempC ?? x.temp);
+      const asic = (x.asicTempC ?? x.temp2C ?? x.temp2);
+      const vr = (x.vrTempC ?? x.vrTemp);
+      const power = (x.powerW ?? x.power);
+      const fan = (x.fanRpm ?? x.fanrpm);
+      const acc = (x.sharesAccepted ?? x.accepted ?? x.shares_accepted);
+      const rej = (x.sharesRejected ?? x.rejected ?? x.shares_rejected);
+      const rejPct = (x.rejectRatePct ?? null);
+      const uptime = (x.uptimeSec ?? x.uptimeSeconds ?? x.uptime);
+
+      // 10 lines total (5 left + 5 right)
       const left = [
-        row("Hash 1m", \`\${fmt(x.hashrate1mTh)} TH/s\`),
-        row("Hash inst", \`\${fmt(x.hashrateTh)} TH/s\`),
-        row("CPU temp", \`\${fmt(x.cpuTempC,1)} °C\`),
-        row("Fan RPM", fmtInt(x.fanRpm)),
-        row("Power", \`\${fmt(x.powerW,1)} W\`)
+        row("Hash (1m)", \`<span class="big hash">\${hr1m==null?"—":fmt(hr1m,2)} TH/s</span>\`),
+        row("Hash (now)", \`<span class="hash">\${hrNow==null?"—":fmt(hrNow,2)} TH/s</span>\`),
+        row("CPU Temp", \`<span class="temp">\${cpu==null?"—":fmt(cpu,1)} °C</span>\`),
+        row("ASIC Temp", \`<span class="temp">\${asic==null?"—":fmt(asic,1)} °C</span>\`),
+        row("VR Temp", \`<span class="temp">\${vr==null?"—":fmt(vr,1)} °C</span>\`)
       ].join("");
 
       const right = [
-        row("Uptime", fmtUptime(x.uptimeSec)),
-        row("Accepted", fmtInt(x.sharesAccepted)),
-        row("Rejected", fmtInt(x.sharesRejected)),
-        row("Reject %", x.rejectRatePct==null ? "—" : \`\${fmt(x.rejectRatePct,2)}%\`),
-        row("Updated", timeAgo(m.last_ts))
+        row("Power", \`\${power==null?"—":fmt(power,1)} W\`),
+        row("Fan RPM", \`\${fan==null?"—":fmtInt(fan)}\`),
+        row("Accepted", \`\${acc==null?"—":fmtInt(acc)}\`),
+        row("Rejected", \`\${rej==null?"—":fmtInt(rej)}\${rejPct==null?"":\` (\${fmt(rejPct,2)}%)\`}\`),
+        row("Uptime", \`\${fmtUptime(uptime)} · \${timeAgo(m.last_ts)}\`)
       ].join("");
 
       return \`
         <div class="card">
           <div class="top">
-            <div class="name">\${esc(m.name || m.id)} <span class="id">(\${esc(m.id)})</span></div>
-            <span class="\${badgeClass}">\${badgeText}</span>
+            <div>
+              <div class="name">\${esc(m.name || m.id)}</div>
+              <div class="sub">\${esc(m.id)}</div>
+            </div>
+            <div class="\${badgeClass}">\${dot}\${badgeText}</div>
           </div>
           <div class="twoCol">
             <div class="col">\${left}</div>
@@ -241,90 +286,129 @@ app.get("/", (req, res) => {
     }).join("");
   }
 
+  // ---- Chart (clearer, dual-axis like your screenshot) ----
   function getSeries(){
     const m = state.miners[0];
-    if(!m) return { points: [], title: "" };
+    if(!m) return { hash: [], temp: [] };
 
-    const metric = state.chartMetric;
     const cut = Date.now() - state.rangeMs;
     const hist = (m.history || []).filter(p => (p.ts||0) >= cut);
 
-    const points = hist
-      .map(p => ({ x: p.ts, y: (p[metric] ?? null) }))
-      .filter(p => typeof p.y === "number" && Number.isFinite(p.y));
+    const hash = [];
+    const temp = [];
 
-    return { points, title: (m.name || m.id) + " — " + $("metricSelect").selectedOptions[0].text };
+    for(const p of hist){
+      const ts = p.ts;
+      const h = toThSmart(p.hashrate1mTh ?? p.hashrateTh ?? p.hashrate1mGh ?? p.hashrateGh);
+      const t = (p.asicTempC ?? p.cpuTempC ?? p.temp2 ?? p.temp);
+      if(Number.isFinite(ts) && Number.isFinite(h)) hash.push({x:ts, y:h});
+      if(Number.isFinite(ts) && Number.isFinite(Number(t))) temp.push({x:ts, y:Number(t)});
+    }
+
+    return { hash, temp, name: m.name || m.id };
   }
 
   function drawChart(){
-    const canvas = $("chart");
-    const ctx = canvas.getContext("2d");
+    const c = $("chart");
+    const ctx = c.getContext("2d");
 
-    const cssW = canvas.clientWidth;
-    const cssH = canvas.clientHeight;
+    const cssW = c.clientWidth;
+    const cssH = c.clientHeight;
     const dpr = Math.max(1, window.devicePixelRatio || 1);
-    canvas.width = Math.floor(cssW * dpr);
-    canvas.height = Math.floor(cssH * dpr);
+    c.width = Math.floor(cssW*dpr);
+    c.height = Math.floor(cssH*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
 
     ctx.clearRect(0,0,cssW,cssH);
 
-    const padL=44, padR=12, padT=12, padB=24;
+    const padL=54, padR=54, padT=18, padB=28;
     const w = cssW - padL - padR;
     const h = cssH - padT - padB;
 
+    // frame
     ctx.strokeStyle = "#232433";
     ctx.strokeRect(padL, padT, w, h);
 
-    const { points, title } = getSeries();
-    ctx.fillStyle = "#e8e8ef";
-    ctx.font = "12px ui-sans-serif,system-ui";
-    ctx.fillText(title, padL, 12);
-
-    if(points.length < 2){
+    const { hash, temp, name } = getSeries();
+    if(hash.length < 2){
       ctx.fillStyle = "#a0a3b1";
-      ctx.fillText("—", padL+10, padT+30);
+      ctx.font = "12px ui-sans-serif,system-ui";
+      ctx.fillText("Waiting for chart data…", padL+10, padT+24);
       return;
     }
 
-    const xs = points.map(p=>p.x);
-    const ys = points.map(p=>p.y);
+    const xs = hash.map(p=>p.x);
     const minX = Math.min(...xs), maxX = Math.max(...xs);
-    const minY = Math.min(...ys), maxY = Math.max(...ys);
-    const yPad = (maxY - minY) * 0.1 || 1;
-    const loY = minY - yPad, hiY = maxY + yPad;
+
+    const hashYs = hash.map(p=>p.y);
+    let minH = Math.min(...hashYs), maxH = Math.max(...hashYs);
+    const hPad = (maxH-minH)*0.12 || 0.05;
+    minH -= hPad; maxH += hPad;
+
+    const tempYs = temp.length ? temp.map(p=>p.y) : [0,1];
+    let minT = Math.min(...tempYs), maxT = Math.max(...tempYs);
+    const tPad = (maxT-minT)*0.12 || 1;
+    minT -= tPad; maxT += tPad;
 
     const X = (x)=> padL + ((x-minX)/(maxX-minX))*w;
-    const Y = (y)=> padT + h - ((y-loY)/(hiY-loY))*h;
+    const YH = (y)=> padT + h - ((y-minH)/(maxH-minH))*h;
+    const YT = (y)=> padT + h - ((y-minT)/(maxT-minT))*h;
 
-    // subtle grid
+    // grid (more clear)
     ctx.strokeStyle = "#1b1c26";
-    for(let i=1;i<=3;i++){
-      const yy = padT + (h*i/4);
+    for(let i=1;i<=5;i++){
+      const yy = padT + (h*i/6);
       ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL+w, yy); ctx.stroke();
     }
 
-    // line
-    ctx.strokeStyle = "#8cf2bc";
-    ctx.lineWidth = 2;
+    // hashrate area + line
     ctx.beginPath();
-    ctx.moveTo(X(points[0].x), Y(points[0].y));
-    for(let i=1;i<points.length;i++) ctx.lineTo(X(points[i].x), Y(points[i].y));
+    ctx.moveTo(X(hash[0].x), YH(hash[0].y));
+    for(let i=1;i<hash.length;i++) ctx.lineTo(X(hash[i].x), YH(hash[i].y));
+    ctx.strokeStyle = "#8cf2bc";
+    ctx.lineWidth = 2.4;
     ctx.stroke();
 
-    // axis labels
-    ctx.fillStyle = "#a0a3b1";
-    ctx.fillText(hiY.toFixed(2), 6, padT+10);
-    ctx.fillText(loY.toFixed(2), 6, padT+h);
+    ctx.lineTo(X(hash[hash.length-1].x), padT+h);
+    ctx.lineTo(X(hash[0].x), padT+h);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(140,242,188,0.14)";
+    ctx.fill();
 
+    // temp line (right axis)
+    if(temp.length >= 2){
+      ctx.beginPath();
+      ctx.moveTo(X(temp[0].x), YT(temp[0].y));
+      for(let i=1;i<temp.length;i++) ctx.lineTo(X(temp[i].x), YT(temp[i].y));
+      ctx.strokeStyle = "#9fb3ff";
+      ctx.lineWidth = 2.0;
+      ctx.stroke();
+    }
+
+    // labels
+    ctx.font = "12px ui-sans-serif,system-ui";
+    ctx.fillStyle = "#e8e8ef";
+    ctx.fillText(name, padL, 14);
+
+    // left axis (hash)
+    ctx.fillStyle = "#8cf2bc";
+    ctx.fillText(maxH.toFixed(2), 8, padT+12);
+    ctx.fillText(minH.toFixed(2), 8, padT+h);
+
+    // right axis (temp)
+    ctx.fillStyle = "#9fb3ff";
+    ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
+    ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
+
+    // time labels
+    ctx.fillStyle = "#a0a3b1";
     const leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    ctx.fillText(leftTime, padL, padT+h+18);
-    ctx.fillText(rightTime, padL+w-52, padT+h+18);
+    ctx.fillText(leftTime, padL, padT+h+20);
+    ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
 
   async function refresh(){
-    // This guarantees you WILL see /v1/miners in Network, and cards will update.
     const r = await fetch("/v1/miners", { cache: "no-store" });
     const j = await r.json();
     state.miners = j.miners || [];
@@ -332,14 +416,17 @@ app.get("/", (req, res) => {
     drawChart();
   }
 
-  $("metricSelect").addEventListener("change", () => {
-    state.chartMetric = $("metricSelect").value;
+  function setRange(ms){
+    state.rangeMs = ms;
+    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
+    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
+    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
     drawChart();
-  });
+  }
 
-  $("btn2h").addEventListener("click", () => { state.rangeMs = 2*60*60*1000; drawChart(); });
-  $("btn6h").addEventListener("click", () => { state.rangeMs = 6*60*60*1000; drawChart(); });
-  $("btn24h").addEventListener("click", () => { state.rangeMs = 24*60*60*1000; drawChart(); });
+  $("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
+  $("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
+  $("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
 
   window.addEventListener("resize", drawChart);
 
