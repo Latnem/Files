@@ -1,14 +1,17 @@
 {
   "name": "minermonitor-server",
   "version": "1.0.0",
-  "private": true,
   "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "express": "^4.19.2",
+    "express": "^4.21.1",
     "cors": "^2.8.5"
   }
 }
