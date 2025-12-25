@@ -5,7 +5,7 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1024kb" }));
 
-// Set this in Render Environment: API_KEY=<your secret>
+// Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
 
 function auth(req, res, next) {
@@ -78,7 +78,7 @@ app.get("/", (req, res) => {
 <title>MinerMonitor</title>
 
 <style>
-  /* Palette (from your screenshot)
+  /* ONLY your palette colors (and rgba derived from them):
      Teal:       #438981
      Dark green: #2C5444
      Navy:       #1D2B38
@@ -87,58 +87,58 @@ app.get("/", (req, res) => {
   */
 
   :root{
-    --c1:#438981;
-    --c2:#2C5444;
-    --c3:#1D2B38;
-    --c4:#3B576D;
-    --c5:#8AA2A2;
+    --c1:#438981; /* teal */
+    --c2:#2C5444; /* dark green */
+    --c3:#1D2B38; /* navy */
+    --c4:#3B576D; /* slate */
+    --c5:#8AA2A2; /* light */
 
-    /* Light theme (default) */
-    --bg: #F6FAFA;
-    --panel: #FFFFFF;
-    --panel2: #F1F7F7;
+    /* Light (default) — airy but still palette-only */
+    --bg: var(--c5);
+    --panel: rgba(138,162,162,.32);      /* c5 */
+    --panel2: rgba(67,137,129,.18);      /* c1 */
     --ink: var(--c3);
-    --mut2: var(--c4);
-    --line: rgba(29,43,56,.16);
+    --mut: var(--c4);
+    --line: rgba(29,43,56,.18);          /* c3 */
 
     --accent: var(--c1);
     --accent2: var(--c2);
 
-    --hashLine: var(--c1);
-    --hashFill: rgba(67,137,129,.16);
-    --tempLine: var(--c2);
+    --hashLine: var(--c2);
+    --hashFill: rgba(67,137,129,.18);    /* c1 */
+    --tempLine: var(--c4);
 
     --ok: var(--c2);
     --warn: var(--c4);
 
-    --btnBg: #FFFFFF;
-    --btnBd: rgba(29,43,56,.18);
+    --btnBg: rgba(138,162,162,.28);      /* c5 */
+    --btnBd: rgba(29,43,56,.18);         /* c3 */
 
     --shadow: 0 10px 26px rgba(29,43,56,.10);
   }
 
   [data-theme="dark"]{
-    --bg: #0E141B;
-    --panel: #121E28;
-    --panel2: #0F1A22;
-    --ink: #E7F0F0;
-    --mut2: var(--c5);
-    --line: rgba(138,162,162,.18);
+    --bg: var(--c3);
+    --panel: rgba(44,84,68,.35);         /* c2 */
+    --panel2: rgba(59,87,109,.45);       /* c4 */
+    --ink: var(--c5);
+    --mut: rgba(138,162,162,.80);        /* c5 */
+    --line: rgba(138,162,162,.22);       /* c5 */
 
     --accent: var(--c1);
     --accent2: var(--c5);
 
     --hashLine: var(--c5);
-    --hashFill: rgba(138,162,162,.16);
+    --hashFill: rgba(59,87,109,.45);     /* c4 */
     --tempLine: var(--c1);
 
     --ok: var(--c5);
     --warn: var(--c1);
 
-    --btnBg: #121E28;
-    --btnBd: rgba(138,162,162,.22);
+    --btnBg: rgba(44,84,68,.40);         /* c2 */
+    --btnBd: rgba(138,162,162,.22);      /* c5 */
 
-    --shadow: 0 12px 28px rgba(0,0,0,.50);
+    --shadow: 0 12px 28px rgba(29,43,56,.45);
   }
 
   html,body{
@@ -150,37 +150,25 @@ app.get("/", (req, res) => {
 
   header{
     position:sticky; top:0; z-index:20;
-    background:var(--bg);
+    background: rgba(138,162,162,.18);
     border-bottom:1px solid var(--line);
+    backdrop-filter: blur(6px);
   }
+  [data-theme="dark"] header{ background: rgba(29,43,56,.60); }
 
-  .wrap{
-    width:min(940px, 92vw);
-    margin:0 auto;
-  }
+  .wrap{ width:min(940px, 92vw); margin:0 auto; }
 
   .head{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    padding:14px 8px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; padding:14px 8px;
   }
 
   .brand{
-    font-size:22px;
-    font-weight:1000;
-    letter-spacing:.2px;
+    font-size:22px; font-weight:1000; letter-spacing:.2px;
   }
   .brand .mark{ color: var(--accent); }
 
-  .headRight{
-    display:flex;
-    align-items:center;
-    gap:8px;
-    flex-wrap:wrap;
-    justify-content:flex-end;
-  }
+  .headRight{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 
   .btn{
     background:var(--btnBg);
@@ -193,23 +181,17 @@ app.get("/", (req, res) => {
   }
   .btn.active{
     border-color: rgba(67,137,129,.55);
-    box-shadow: 0 0 0 2px rgba(67,137,129,.12) inset;
+    box-shadow: 0 0 0 2px rgba(67,137,129,.18) inset;
   }
 
-  main{
-    padding:14px 0 22px 0;
-    display:grid;
-    gap:14px;
-  }
+  main{ padding:14px 0 22px 0; display:grid; gap:14px; }
 
   .topStats{
     display:grid;
     grid-template-columns:repeat(3, minmax(0, 1fr));
     gap:10px;
   }
-  @media (max-width: 860px){
-    .topStats{grid-template-columns:1fr;}
-  }
+  @media (max-width: 860px){ .topStats{grid-template-columns:1fr;} }
 
   .stat{
     background:var(--panel);
@@ -218,9 +200,9 @@ app.get("/", (req, res) => {
     padding:12px;
     box-shadow:var(--shadow);
   }
-  .stat .k{color:var(--mut2); font-weight:950; font-size:12px; letter-spacing:.2px}
+  .stat .k{color:var(--mut); font-weight:950; font-size:12px; letter-spacing:.2px}
   .stat .v{font-size:20px; font-weight:1000; margin-top:6px}
-  .stat .s{color:var(--mut2); margin-top:4px; font-weight:850; font-size:12px}
+  .stat .s{color:var(--mut); margin-top:4px; font-weight:850; font-size:12px}
 
   .panelBox{
     background:var(--panel);
@@ -229,17 +211,12 @@ app.get("/", (req, res) => {
     padding:12px;
     box-shadow:var(--shadow);
   }
-  .panelTitle{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-bottom:10px;
-  }
+  .panelTitle{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .panelTitle h2{
     margin:0;
     font-size:12px;
     font-weight:1000;
-    color:var(--mut2);
+    color:var(--mut);
     letter-spacing:.22px;
     text-transform:uppercase;
   }
@@ -251,18 +228,14 @@ app.get("/", (req, res) => {
     border:1px solid var(--line);
     background:var(--panel2);
   }
-  @media (max-width: 860px){
-    canvas{height:240px;}
-  }
+  @media (max-width: 860px){ canvas{height:240px;} }
 
   #grid{
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
     gap:12px;
   }
-  @media (max-width: 860px){
-    #grid{grid-template-columns:1fr;}
-  }
+  @media (max-width: 860px){ #grid{grid-template-columns:1fr;} }
 
   .card{
     background:var(--panel);
@@ -273,23 +246,12 @@ app.get("/", (req, res) => {
   }
 
   .cardTop{
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:10px;
+    display:flex; align-items:flex-start; justify-content:space-between; gap:10px;
     margin-bottom:10px;
   }
 
-  .minerName{
-    font-weight:1000;
-    font-size:15px;
-  }
-  .minerSub{
-    margin-top:3px;
-    font-size:12px;
-    color:var(--mut2);
-    font-weight:850;
-  }
+  .minerName{ font-weight:1000; font-size:15px; }
+  .minerSub{ margin-top:3px; font-size:12px; color:var(--mut); font-weight:850; }
 
   .badge{
     border:1px solid var(--line);
@@ -301,9 +263,7 @@ app.get("/", (req, res) => {
     white-space:nowrap;
   }
 
-  .dot{
-    width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px)
-  }
+  .dot{ width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px) }
   .dotOk{background:var(--ok)}
   .dotWarn{background:var(--warn)}
 
@@ -317,33 +277,27 @@ app.get("/", (req, res) => {
     border:1px solid var(--line);
     margin-bottom:10px;
   }
-  .hero .hk{color:var(--mut2);font-weight:1000;font-size:12px}
-  .hero .hv{font-weight:1000;font-size:22px;margin-top:4px}
-  .hashNum{color:var(--accent2)}
-  .tempNum{color:var(--accent)}
+  .hero .hk{ color:var(--mut); font-weight:1000; font-size:12px }
+  .hero .hv{ font-weight:1000; font-size:22px; margin-top:4px }
+  .hashNum{ color:var(--accent2) }
+  .tempNum{ color:var(--accent) }
 
-  .twoCol{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:12px;
-  }
-  .col{display:flex;flex-direction:column}
+  .twoCol{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .col{ display:flex; flex-direction:column; }
 
   .row{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
+    display:flex; justify-content:space-between; gap:12px;
     padding:6px 0;
     border-bottom:1px dashed rgba(29,43,56,.14);
   }
   [data-theme="dark"] .row{ border-bottom-color: rgba(138,162,162,.18); }
-  .row:last-child{border-bottom:0}
-  .k{color:var(--mut2); font-weight:900}
-  .v{font-weight:1000; text-align:right}
-  .v.mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
+  .row:last-child{ border-bottom:0; }
+  .k{ color:var(--mut); font-weight:900; }
+  .v{ font-weight:1000; text-align:right; }
+  .v.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
   .empty{
-    color:var(--mut2);
+    color:var(--mut);
     padding:16px;
     border:1px dashed var(--line);
     border-radius:16px;
@@ -397,63 +351,74 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  const state = { miners: [], rangeMs: 2*60*60*1000 };
-  const $ = (id)=>document.getElementById(id);
+  var state = { miners: [], rangeMs: 2*60*60*1000 };
+
+  function $(id){ return document.getElementById(id); }
 
   function esc(str){
-    return String(str).replace(/[&<>\"']/g, c => ({
-      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
-    }[c]));
+    return String(str).replace(/[&<>"']/g, function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
   }
+
   function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
-  function fmt(v, d=2){
-    const n = Number(v);
+  function fmt(v, d){
+    if (d === undefined) d = 2;
+    var n = Number(v);
     if(!Number.isFinite(n)) return "—";
     return n.toFixed(d);
   }
+
   function fmtInt(v){
-    const n = Number(v);
+    var n = Number(v);
     if(!Number.isFinite(n)) return "—";
     return String(Math.round(n));
   }
+
   function fmtUptime(sec){
-    const n = Number(sec);
+    var n = Number(sec);
     if(!Number.isFinite(n) || n <= 0) return "—";
-    const d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
-    return \`\${d}d \${h}h \${m}m\`;
+    var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
+    return d+"d "+h+"h "+m+"m";
   }
+
   function timeAgo(ts){
     if(!ts) return "—";
-    const diff = Math.max(0, Date.now()-ts);
-    const s = Math.floor(diff/1000);
+    var diff = Math.max(0, Date.now()-ts);
+    var s = Math.floor(diff/1000);
     if(s<60) return s+"s";
-    const m=Math.floor(s/60); if(m<60) return m+"m";
-    const h=Math.floor(m/60); if(h<24) return h+"h";
-    const d=Math.floor(h/24); return d+"d";
+    var m=Math.floor(s/60); if(m<60) return m+"m";
+    var h=Math.floor(m/60); if(h<24) return h+"h";
+    var d=Math.floor(h/24); return d+"d";
   }
+
   function safeNum(v){
-    const n = Number(v);
+    var n = Number(v);
     return Number.isFinite(n) ? n : null;
   }
+
   function shortUser(u){
     if(!u) return null;
-    const s = String(u);
+    var s = String(u);
     if(s.length <= 12) return s;
     return s.slice(0,6) + "…" + s.slice(-4);
   }
-  function row(k, vHtml, mono=false){
-    return \`<div class="row"><span class="k">\${k}</span><span class="v \${mono ? "mono":""}">\${vHtml}</span></div>\`;
+
+  function row(k, vHtml, mono){
+    var cls = mono ? "v mono" : "v";
+    return '<div class="row"><span class="k">'+k+'</span><span class="'+cls+'">'+vHtml+'</span></div>';
   }
+
   function computeEfficiencyJTH(powerW, hashrateTh){
-    const p = safeNum(powerW);
-    const h = safeNum(hashrateTh);
+    var p = safeNum(powerW);
+    var h = safeNum(hashrateTh);
     if(p == null || h == null || h <= 0) return null;
     return p / h; // W/TH == J/TH
   }
 
   function renderTopSummary(){
-    const miners = state.miners || [];
+    var miners = state.miners || [];
     if(!miners.length){
       $("sumHash").textContent = "—";
       $("sumHashSub").textContent = "—";
@@ -464,228 +429,240 @@ app.get("/", (req, res) => {
       return;
     }
 
-    let totalHash = 0;
-    let onlineCount = 0;
-    let acc = 0, rej = 0;
-    let tempSum = 0, tempCount = 0;
+    var totalHash = 0;
+    var onlineCount = 0;
+    var acc = 0, rej = 0;
+    var tempSum = 0, tempCount = 0;
 
-    for(const m of miners){
-      const x = m.metrics || {};
-      const on = online(m.last_ts);
+    for(var i=0;i<miners.length;i++){
+      var m = miners[i];
+      var x = m.metrics || {};
+      var on = online(m.last_ts);
       if(on) onlineCount++;
 
-      const useH = safeNum(x.hashrate1mTh ?? x.hashrateTh);
+      var useH = safeNum((x.hashrate1mTh != null) ? x.hashrate1mTh : x.hashrateTh);
       if(useH != null) totalHash += useH;
 
-      const a = safeNum(x.sharesAccepted);
-      const r = safeNum(x.sharesRejected);
+      var a = safeNum(x.sharesAccepted);
+      var r = safeNum(x.sharesRejected);
       if(a != null) acc += a;
       if(r != null) rej += r;
 
-      const t = safeNum(x.asicTempC ?? x.cpuTempC);
+      var t = safeNum((x.asicTempC != null) ? x.asicTempC : x.cpuTempC);
       if(t != null){ tempSum += t; tempCount++; }
     }
 
     $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
     $("sumHashSub").textContent = onlineCount + " online · " + miners.length + " total";
 
-    $("sumShares").textContent = (acc + rej).toLocaleString();
-    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString() + " · Rejected " + rej.toLocaleString();
+    $("sumShares").textContent = String(acc + rej);
+    $("sumSharesSub").textContent = "Accepted " + String(acc) + " · Rejected " + String(rej);
 
-    const avg = (tempCount ? (tempSum/tempCount) : null);
+    var avg = (tempCount ? (tempSum/tempCount) : null);
     $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + "°C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
   function renderCards(){
-    const el = document.getElementById("grid");
-    const miners = state.miners || [];
+    var el = $("grid");
+    var miners = state.miners || [];
     if(!miners.length){
       el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
       return;
     }
 
-    el.innerHTML = miners.map(m => {
-      const x = m.metrics || {};
-      const isOn = online(m.last_ts);
+    var out = "";
+    for(var i=0;i<miners.length;i++){
+      var m = miners[i];
+      var x = m.metrics || {};
+      var isOn = online(m.last_ts);
 
-      const dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
-      const badgeText = isOn ? "Mining" : "Stale";
+      var dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
+      var badgeText = isOn ? "Mining" : "Stale";
 
-      const hr1m = x.hashrate1mTh ?? null;
-      const hr10m = x.hashrate10mTh ?? null;
-      const hr1h  = x.hashrate1hTh ?? null;
-      const hrNow = x.hashrateTh ?? null;
+      var hr1m = (x.hashrate1mTh != null) ? x.hashrate1mTh : null;
+      var hr10m = (x.hashrate10mTh != null) ? x.hashrate10mTh : null;
+      var hr1h  = (x.hashrate1hTh != null) ? x.hashrate1hTh : null;
+      var hrNow = (x.hashrateTh != null) ? x.hashrateTh : null;
 
-      const chip = x.asicTempC ?? null;
-      const cpu  = x.cpuTempC ?? null;
+      var chip = (x.asicTempC != null) ? x.asicTempC : null;
+      var cpu  = (x.cpuTempC != null) ? x.cpuTempC : null;
 
-      const power = x.powerW ?? null;
-      const fanRpm = x.fanRpm ?? null;
+      var power = (x.powerW != null) ? x.powerW : null;
+      var fanRpm = (x.fanRpm != null) ? x.fanRpm : null;
 
-      const accepted = x.sharesAccepted ?? null;
-      const rejected = x.sharesRejected ?? null;
+      var accepted = (x.sharesAccepted != null) ? x.sharesAccepted : null;
+      var rejected = (x.sharesRejected != null) ? x.sharesRejected : null;
 
-      const bestDiff = x.bestDiff ?? null;
-      const uptime = x.uptimeSec ?? null;
+      var bestDiff = (x.bestDiff != null) ? x.bestDiff : null;
+      var uptime = (x.uptimeSec != null) ? x.uptimeSec : null;
 
-      const poolUrl  = x.stratumURL ?? null;
-      const poolPort = x.stratumPort ?? null;
-      const poolUser = x.stratumUser ?? null;
+      var poolUrl  = (x.stratumURL != null) ? x.stratumURL : null;
+      var poolPort = (x.stratumPort != null) ? x.stratumPort : null;
+      var poolUser = (x.stratumUser != null) ? x.stratumUser : null;
 
-      const ip = x.ipv4 ?? null;
+      var ip = (x.ipv4 != null) ? x.ipv4 : null;
 
-      const heroHash = (hr1m ?? hrNow);
-      const heroTemp = (chip ?? cpu);
-      const eff = x.efficiencyJTH ?? computeEfficiencyJTH(power, heroHash);
+      var heroHash = (hr1m != null) ? hr1m : hrNow;
+      var heroTemp = (chip != null) ? chip : cpu;
+      var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
-      // 10 rows total (5 per column)
-      const left = [
-        row("Hash (10m)", hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")),
-        row("Hash (1h)",  hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")),
-        row("Power",      power==null ? "—" : (fmt(power,1) + " W")),
-        row("Fan RPM",    fanRpm==null ? "—" : fmtInt(fanRpm)),
-        row("Uptime",     fmtUptime(uptime))
-      ].join("");
+      // exactly 10 rows (5 per column)
+      var left = "";
+      left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
+      left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
+      left += row("Power",      (power==null ? "—" : (fmt(power,1) + " W")), false);
+      left += row("Fan RPM",    (fanRpm==null ? "—" : fmtInt(fanRpm)), false);
+      left += row("Uptime",     fmtUptime(uptime), false);
 
-      const right = [
-        row("Accepted", accepted==null ? "—" : fmtInt(accepted)),
-        row("Rejected", rejected==null ? "—" : fmtInt(rejected)),
-        row("Efficiency", eff==null ? "—" : (fmt(eff,2) + " J/TH")),
-        row("Best Diff", bestDiff==null ? "—" : fmtInt(bestDiff)),
-        row("Last Seen", timeAgo(m.last_ts))
-      ].join("");
+      var right = "";
+      right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
+      right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
+      right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
+      right += row("Best Diff", (bestDiff==null ? "—" : fmtInt(bestDiff)), false);
+      right += row("Last Seen", timeAgo(m.last_ts), false);
 
-      // extra (only if present)
-      const extra = [];
-      if(poolUrl) extra.push(row("Pool Host", esc(poolUrl), true));
-      if(poolPort != null) extra.push(row("Pool Port", fmtInt(poolPort)));
-      if(poolUser) extra.push(row("Pool User", esc(shortUser(poolUser)), true));
-      const extraHtml = extra.length ? `<div class="twoCol" style="margin-top:10px">
-        <div class="col">${extra.slice(0,2).join("")}</div>
-        <div class="col">${extra.slice(2).join("")}</div>
-      </div>` : "";
+      var extraHtml = "";
+      if(poolUrl || poolPort != null || poolUser){
+        var eL = "";
+        var eR = "";
+        if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
+        if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
+        if(poolUser) eL += row("Pool User", esc(shortUser(poolUser)), true);
 
-      return `
-        <div class="card">
-          <div class="cardTop">
-            <div>
-              <div class="minerName">${esc(m.name || m.id)}</div>
-              <div class="minerSub">${esc(m.id)}${ip ? " · " + esc(ip) : ""}</div>
-            </div>
-            <div class="badge">${dot}${badgeText}</div>
-          </div>
+        extraHtml =
+          '<div class="twoCol" style="margin-top:10px">' +
+            '<div class="col">' + eL + '</div>' +
+            '<div class="col">' + eR + '</div>' +
+          '</div>';
+      }
 
-          <div class="hero">
-            <div>
-              <div class="hk">Real Hashrate</div>
-              <div class="hv hashNum">${heroHash==null ? "—" : fmt(heroHash,2)} TH/s</div>
-            </div>
-            <div>
-              <div class="hk">Chip Temperature</div>
-              <div class="hv tempNum">${heroTemp==null ? "—" : fmt(heroTemp,1)} °C</div>
-            </div>
-          </div>
+      out +=
+        '<div class="card">' +
+          '<div class="cardTop">' +
+            '<div>' +
+              '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
+              '<div class="minerSub">' + esc(m.id) + (ip ? (" · " + esc(ip)) : "") + '</div>' +
+            '</div>' +
+            '<div class="badge">' + dot + badgeText + '</div>' +
+          '</div>' +
 
-          <div class="twoCol">
-            <div class="col">${left}</div>
-            <div class="col">${right}</div>
-          </div>
+          '<div class="hero">' +
+            '<div>' +
+              '<div class="hk">Real Hashrate</div>' +
+              '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
+            '</div>' +
+            '<div>' +
+              '<div class="hk">Chip Temperature</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "—" : fmt(heroTemp,1)) + ' °C</div>' +
+            '</div>' +
+          '</div>' +
 
-          ${extraHtml}
-        </div>
-      `;
-    }).join("");
+          '<div class="twoCol">' +
+            '<div class="col">' + left + '</div>' +
+            '<div class="col">' + right + '</div>' +
+          '</div>' +
+          extraHtml +
+        '</div>';
+    }
+
+    el.innerHTML = out;
   }
 
   function getSeries(){
-    const m = state.miners[0];
+    var m = state.miners[0];
     if(!m) return { hash: [], temp: [], name: "" };
 
-    const cut = Date.now() - state.rangeMs;
-    const hist = (m.history || []).filter(p => (p.ts||0) >= cut);
+    var cut = Date.now() - state.rangeMs;
+    var hist = (m.history || []).filter(function(p){ return (p.ts||0) >= cut; });
 
-    const hash = [];
-    const temp = [];
+    var hash = [];
+    var temp = [];
 
-    for(const p of hist){
-      const ts = p.ts;
-      const h = safeNum(p.hashrate1mTh ?? p.hashrateTh);
-      const t = safeNum(p.asicTempC ?? p.cpuTempC);
+    for(var i=0;i<hist.length;i++){
+      var p = hist[i];
+      var ts = p.ts;
+      var h = safeNum((p.hashrate1mTh != null) ? p.hashrate1mTh : p.hashrateTh);
+      var t = safeNum((p.asicTempC != null) ? p.asicTempC : p.cpuTempC);
       if(Number.isFinite(ts) && Number.isFinite(h)) hash.push({x:ts, y:h});
       if(Number.isFinite(ts) && Number.isFinite(t)) temp.push({x:ts, y:t});
     }
-    return { hash, temp, name: m.name || m.id };
+    return { hash: hash, temp: temp, name: m.name || m.id };
   }
 
   function drawChart(){
-    const c = document.getElementById("chart");
-    const ctx = c.getContext("2d");
+    var c = $("chart");
+    var ctx = c.getContext("2d");
 
-    const cssW = c.clientWidth;
-    const cssH = c.clientHeight;
-    const dpr = Math.max(1, window.devicePixelRatio || 1);
+    var cssW = c.clientWidth;
+    var cssH = c.clientHeight;
+    var dpr = Math.max(1, window.devicePixelRatio || 1);
     c.width = Math.floor(cssW*dpr);
     c.height = Math.floor(cssH*dpr);
     ctx.setTransform(dpr,0,0,dpr,0,0);
 
     ctx.clearRect(0,0,cssW,cssH);
 
-    const padL=56, padR=56, padT=18, padB=28;
-    const w = cssW - padL - padR;
-    const h = cssH - padT - padB;
+    var padL=56, padR=56, padT=18, padB=28;
+    var w = cssW - padL - padR;
+    var h = cssH - padT - padB;
 
-    const css = getComputedStyle(document.documentElement);
-    const line = css.getPropertyValue("--line").trim();
-    const hashLine = css.getPropertyValue("--hashLine").trim();
-    const hashFill = css.getPropertyValue("--hashFill").trim();
-    const tempLine = css.getPropertyValue("--tempLine").trim();
-    const ink = css.getPropertyValue("--ink").trim();
-    const mut2 = css.getPropertyValue("--mut2").trim();
+    var css = getComputedStyle(document.documentElement);
+    var line = css.getPropertyValue("--line").trim();
+    var hashLine = css.getPropertyValue("--hashLine").trim();
+    var hashFill = css.getPropertyValue("--hashFill").trim();
+    var tempLine = css.getPropertyValue("--tempLine").trim();
+    var ink = css.getPropertyValue("--ink").trim();
+    var mut = css.getPropertyValue("--mut").trim();
 
     ctx.strokeStyle = line;
     ctx.lineWidth = 1;
     ctx.strokeRect(padL, padT, w, h);
 
-    const { hash, temp, name } = getSeries();
+    var series = getSeries();
+    var hash = series.hash, temp = series.temp, name = series.name;
+
     if(hash.length < 2){
-      ctx.fillStyle = mut2;
+      ctx.fillStyle = mut;
       ctx.font = "12px ui-sans-serif,system-ui";
       ctx.fillText("Waiting for chart data…", padL+10, padT+24);
       return;
     }
 
-    const xs = hash.map(p=>p.x);
-    const minX = Math.min(...xs), maxX = Math.max(...xs);
+    var xs = hash.map(function(p){ return p.x; });
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
 
-    const hashYs = hash.map(p=>p.y);
-    let minH = Math.min(...hashYs), maxH = Math.max(...hashYs);
-    const hPad = (maxH-minH)*0.18 || 0.06;
+    var hashYs = hash.map(function(p){ return p.y; });
+    var minH = Math.min.apply(null, hashYs);
+    var maxH = Math.max.apply(null, hashYs);
+    var hPad = (maxH-minH)*0.18 || 0.06;
     minH -= hPad; maxH += hPad;
 
-    const tempYs = temp.length ? temp.map(p=>p.y) : [0,1];
-    let minT = Math.min(...tempYs), maxT = Math.max(...tempYs);
-    const tPad = (maxT-minT)*0.18 || 1;
+    var tempYs = temp.length ? temp.map(function(p){ return p.y; }) : [0,1];
+    var minT = Math.min.apply(null, tempYs);
+    var maxT = Math.max.apply(null, tempYs);
+    var tPad = (maxT-minT)*0.18 || 1;
     minT -= tPad; maxT += tPad;
 
-    const X = (x)=> padL + ((x-minX)/(maxX-minX))*w;
-    const YH = (y)=> padT + h - ((y-minH)/(maxH-minH))*h;
-    const YT = (y)=> padT + h - ((y-minT)/(maxT-minT))*h;
+    function X(x){ return padL + ((x-minX)/(maxX-minX))*w; }
+    function YH(y){ return padT + h - ((y-minH)/(maxH-minH))*h; }
+    function YT(y){ return padT + h - ((y-minT)/(maxT-minT))*h; }
 
     // grid
     ctx.strokeStyle = line;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
-    for(let i=1;i<=6;i++){
-      const yy = padT + (h*i/7);
+    for(var i=1;i<=6;i++){
+      var yy = padT + (h*i/7);
       ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL+w, yy); ctx.stroke();
     }
     ctx.globalAlpha = 1;
 
-    // hashrate line
+    // hash line
     ctx.beginPath();
     ctx.moveTo(X(hash[0].x), YH(hash[0].y));
-    for(let i=1;i<hash.length;i++) ctx.lineTo(X(hash[i].x), YH(hash[i].y));
+    for(var j=1;j<hash.length;j++) ctx.lineTo(X(hash[j].x), YH(hash[j].y));
     ctx.strokeStyle = hashLine;
     ctx.lineWidth = 3;
     ctx.stroke();
@@ -701,7 +678,7 @@ app.get("/", (req, res) => {
     if(temp.length >= 2){
       ctx.beginPath();
       ctx.moveTo(X(temp[0].x), YT(temp[0].y));
-      for(let i=1;i<temp.length;i++) ctx.lineTo(X(temp[i].x), YT(temp[i].y));
+      for(var k=1;k<temp.length;k++) ctx.lineTo(X(temp[k].x), YT(temp[k].y));
       ctx.strokeStyle = tempLine;
       ctx.lineWidth = 2.4;
       ctx.stroke();
@@ -712,7 +689,7 @@ app.get("/", (req, res) => {
     ctx.fillStyle = ink;
     ctx.fillText(name, padL, 14);
 
-    // axis labels
+    // axes
     ctx.fillStyle = hashLine;
     ctx.fillText(maxH.toFixed(2), 10, padT+12);
     ctx.fillText(minH.toFixed(2), 10, padT+h);
@@ -721,20 +698,23 @@ app.get("/", (req, res) => {
     ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
     ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
 
-    ctx.fillStyle = mut2;
-    const leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    const rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    ctx.fillStyle = mut;
+    var leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    var rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     ctx.fillText(leftTime, padL, padT+h+20);
     ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
 
-  async function refresh(){
-    const r = await fetch("/v1/miners", { cache: "no-store" });
-    const j = await r.json();
-    state.miners = j.miners || [];
-    renderTopSummary();
-    renderCards();
-    drawChart();
+  function refresh(){
+    fetch("/v1/miners", { cache: "no-store" })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        state.miners = j.miners || [];
+        renderTopSummary();
+        renderCards();
+        drawChart();
+      })
+      .catch(function(){ /* ignore */ });
   }
 
   function setRange(ms){
@@ -752,16 +732,18 @@ app.get("/", (req, res) => {
     drawChart();
   }
 
-  $("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
-  $("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
-  $("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
-  $("themeBtn").addEventListener("click", ()=>{
-    const cur = document.documentElement.getAttribute("data-theme") || "light";
+  $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
+  $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
+  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });
+
+  $("themeBtn").addEventListener("click", function(){
+    var cur = document.documentElement.getAttribute("data-theme") || "light";
     applyTheme(cur === "dark" ? "light" : "dark");
   });
+
   window.addEventListener("resize", drawChart);
 
-  const saved = localStorage.getItem("mm_theme");
+  var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
   setInterval(refresh, 5000);
