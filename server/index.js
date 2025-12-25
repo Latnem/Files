@@ -342,6 +342,20 @@ app.get("/", (req, res) => {
     font-weight:1000;
   }
   .addrLink:hover{ text-decoration:underline; }
+
+  /* Prevent long pool address from stretching layout */
+  .rows .val, .rows .val a{
+    overflow-wrap:anywhere;
+    word-break:break-word;
+  }
+
+
+  /* Status dot colors (fixed) */
+  .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
+  .dot.ok{ background:#16a34a; }      /* green */
+  .dot.stale{ background:#f59e0b; }   /* orange */
+  .dot.off{ background:#ef4444; }     /* red */
+
 </style>
 </head>
 
