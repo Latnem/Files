@@ -1,70 +1,71 @@
 import express from "express";
 import cors from "cors";
-import Database from "better-sqlite3";
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "512kb" }));
 
-const db = new Database("hashwatcher.db");
-db.exec(`
-CREATE TABLE IF NOT EXISTS miners (
-  id TEXT PRIMARY KEY,
-  name TEXT,
-  last_ts INTEGER,
-  hashrate_gh REAL,
-  temp_c REAL,
-  uptime_sec INTEGER
-);
-`);
-
+// ===== Auth =====
 const API_KEY = process.env.API_KEY || "";
 
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ")
-    ? header.slice(7)
-    : "";
-
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
   if (!API_KEY || token !== API_KEY) {
     return res.status(401).json({ error: "unauthorized" });
   }
   next();
 }
 
+// ===== In-memory store (resets if service restarts) =====
+/**
+ * Map: minerId -> {
+ *   id, name, last_ts, hashrate_gh, temp_c, uptime_sec
+ * }
+ */
+const minersStore = new Map();
+
+// ===== API: Agent ingest =====
 app.post("/v1/ingest", auth, (req, res) => {
-  const miners = req.body?.miners || [];
+  try {
+    const miners = req.body?.miners || [];
+    const now = Date.now();
 
-  const stmt = db.prepare(`
-    INSERT INTO miners (id, name, last_ts, hashrate_gh, temp_c, uptime_sec)
-    VALUES (@id, @name, @ts, @hashrate, @temp, @uptime)
-    ON CONFLICT(id) DO UPDATE SET
-      name = excluded.name,
-      last_ts = excluded.last_ts,
-      hashrate_gh = excluded.hashrate_gh,
-      temp_c = excluded.temp_c,
-      uptime_sec = excluded.uptime_sec
-  `);
+    for (const m of miners) {
+      const id = String(m?.id || "").trim();
+      if (!id) continue;
 
-  for (const m of miners) {
-    stmt.run({
-      id: m.id,
-      name: m.name,
-      ts: m.metrics?.ts || Date.now(),
-      hashrate: m.metrics?.hashrateGh ?? null,
-      temp: m.metrics?.tempC ?? null,
-      uptime: m.metrics?.uptimeSec ?? null
-    });
+      const name = String(m?.name || id);
+      const ts = Number(m?.metrics?.ts || now);
+
+      const row = {
+        id,
+        name,
+        last_ts: Number.isFinite(ts) ? ts : now,
+        hashrate_gh: m?.metrics?.hashrateGh ?? null,
+        temp_c: m?.metrics?.tempC ?? null,
+        uptime_sec: m?.metrics?.uptimeSec ?? null,
+      };
+
+      minersStore.set(id, row);
+    }
+
+    res.json({ ok: true, count: miners.length });
+  } catch (e) {
+    console.error("ingest error:", e);
+    res.status(500).json({ error: "server_error" });
   }
-
-  res.json({ ok: true, count: miners.length });
 });
 
+// ===== API: dashboard data =====
 app.get("/v1/miners", (req, res) => {
-  const rows = db.prepare("SELECT * FROM miners ORDER BY id").all();
-  res.json({ miners: rows });
+  const miners = Array.from(minersStore.values()).sort((a, b) =>
+    a.id.localeCompare(b.id)
+  );
+  res.json({ miners });
 });
 
+// ===== Web dashboard =====
 app.get("/", (req, res) => {
   res.type("html").send(`<!doctype html>
 <html>
@@ -74,11 +75,15 @@ app.get("/", (req, res) => {
   <title>MinerMonitor</title>
   <script>
     async function fetchMiners(){
-      const r = await fetch('/v1/miners');
+      const r = await fetch('/v1/miners', { cache: 'no-store' });
       const j = await r.json();
       const el = document.getElementById('grid');
-      el.innerHTML = (j.miners || []).map(m => {
-        const st = Date.now() - (m.last_ts||0) < 60000 ? 'online' : 'stale';
+      const miners = j.miners || [];
+      const now = Date.now();
+
+      el.innerHTML = miners.map(m => {
+        const last = m.last_ts || 0;
+        const st = (now - last) < 60000 ? 'online' : 'stale';
         return \`
           <div class="card">
             <div class="top">
@@ -89,8 +94,12 @@ app.get("/", (req, res) => {
             <div class="row"><span>Temp</span><b>\${m.temp_c ?? '—'} °C</b></div>
             <div class="row"><span>Uptime</span><b>\${fmtUptime(m.uptime_sec)}</b></div>
             <div class="foot">Updated \${timeAgo(m.last_ts)}</div>
-          </div>\`
+          </div>\`;
       }).join('');
+
+      if(miners.length === 0){
+        el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
+      }
     }
 
     function fmt(v, d){
@@ -99,20 +108,22 @@ app.get("/", (req, res) => {
       return v;
     }
     function fmtUptime(s){
-      if(!s) return '—';
+      if(!s || !Number.isFinite(Number(s))) return '—';
+      s = Number(s);
       const d=Math.floor(s/86400), h=Math.floor((s%86400)/3600), m=Math.floor((s%3600)/60);
       return \`\${d}d \${h}h \${m}m\`;
     }
     function timeAgo(ts){
       if(!ts) return '—';
-      const diff = Math.max(0, Date.now()-ts); const s = Math.floor(diff/1000);
+      const diff = Math.max(0, Date.now()-ts);
+      const s = Math.floor(diff/1000);
       if(s<60) return s+"s ago";
       const m=Math.floor(s/60); if(m<60) return m+"m ago";
       const h=Math.floor(m/60); if(h<24) return h+"h ago";
       const d=Math.floor(h/24); return d+"d ago";
     }
     function escapeHtml(str){
-      return String(str).replace(/[&<>\\"']/g, c => ({
+      return String(str).replace(/[&<>\"']/g, c => ({
         '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
       }[c]));
     }
@@ -137,6 +148,7 @@ app.get("/", (req, res) => {
     .row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px dashed #24263a}
     .row:last-of-type{border-bottom:0}
     .foot{margin-top:8px;color:var(--mut)}
+    .empty{color:var(--mut);padding:18px;border:1px dashed #2a2b3c;border-radius:14px}
   </style>
 </head>
 <body>
@@ -151,7 +163,8 @@ app.get("/", (req, res) => {
 </html>`);
 });
 
+// ===== Start =====
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log("HashWatcher-Lite running on port", PORT);
+  console.log("MinerMonitor running on port", PORT);
 });
