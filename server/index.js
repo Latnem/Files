@@ -14,10 +14,10 @@ function auth(req, res, next) {
   next();
 }
 
-// in-memory
+// in-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 4000;
+const HISTORY_MAX_POINTS = 5000;
 
 function clampHistory(id) {
   const arr = historyStore.get(id) || [];
@@ -59,7 +59,7 @@ app.get("/v1/miners", (req, res) => {
     .sort((a, b) => a.id.localeCompare(b.id))
     .map((m) => ({
       ...m,
-      history: (historyStore.get(m.id) || []).slice(-1600),
+      history: (historyStore.get(m.id) || []).slice(-2000),
     }));
 
   res.json({ miners });
@@ -69,134 +69,349 @@ app.get("/", (req, res) => {
   res.type("html").send(`<!doctype html>
 <html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MinerMonitor</title>
-  <style>
-    :root{
-      --bg:#0b0b10; --fg:#e8e8ef; --mut:#a0a3b1;
-      --card:#14151d; --line:#232433;
-      --good:#1da45b; --warn:#e0a800;
-      --hash:#8cf2bc; --temp:#9fb3ff;
-    }
-    html,body{background:var(--bg);color:var(--fg);font:14px/1.45 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;margin:0}
-    header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
-    .title{font-weight:800;font-size:18px;letter-spacing:.2px}
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MinerMonitor</title>
 
-    /* centered, not full width */
-    .wrap{
-      width: min(980px, 92vw);
-      margin: 0 auto;
-    }
+<style>
+  /* Palette inspired by your screenshot swatches:
+     #0b120b  #213023  #3d574b  #607e80  #8da4a5  #c7d5da */
 
-    main{padding:14px 0 18px 0;display:grid;gap:14px}
-    .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
-    .panelTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-    .panelTitle h2{margin:0;font-size:14px;font-weight:800}
-    .btnRow{display:flex;gap:8px}
-    .btn{background:#0f1017;border:1px solid var(--line);color:var(--fg);border-radius:10px;padding:6px 10px;cursor:pointer}
-    .btn.active{border-color:#2d9d6e; box-shadow:0 0 0 1px rgba(45,157,110,.25) inset}
+  :root{
+    /* LIGHT (default) — forest/sage palette */
+    --bg: #eef2f0;
+    --panel: #f8fbfa;
+    --panel2: #f1f6f4;
+    --ink: #0b120b;
+    --mut: #3d574b;
+    --mut2:#607e80;
+    --line:#c7d5da;
+    --good:#3d574b;
+    --warn:#b87b00;
 
-    canvas{width:100%;height:260px;border-radius:12px;background:#0f1017;border:1px solid var(--line)}
+    --hash:#213023;           /* hashrate numbers */
+    --hashLine:#3d574b;       /* hashrate line */
+    --hashFill: rgba(61,87,75,.18);
 
-    /* 2 columns grid like HashWatcher feel */
-    #grid{
-      display:grid;
-      grid-template-columns:repeat(2, minmax(0, 1fr));
-      gap:12px;
-    }
-    @media (max-width: 860px){
-      #grid{grid-template-columns:1fr;}
-      canvas{height:240px;}
-    }
+    --temp:#607e80;           /* temps */
+    --tempLine:#607e80;
 
-    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;box-shadow:0 2px 10px rgba(0,0,0,.25)}
-    .top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
-    .name{font-weight:900}
-    .sub{color:var(--mut);font-size:12px;margin-top:2px}
-    .badge{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid #2a2b3c}
-    .online{background:rgba(29,164,91,.15);color:#8cf2bc;border-color:#1da45b}
-    .stale{background:rgba(224,168,0,.15);color:#ffe28a;border-color:#e0a800}
+    --shadow: 0 6px 18px rgba(11,18,11,.08);
 
-    .twoCol{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .col{display:flex;flex-direction:column}
-    .row{display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed #24263a}
-    .row:last-child{border-bottom:0}
-    .k{color:var(--mut)}
-    .v{font-weight:800}
-    .big{font-size:20px;font-weight:950}
-    .hash{color:var(--hash)}
-    .temp{color:var(--temp)}
-    .okDot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--good);margin-right:6px;transform:translateY(-1px)}
-    .warnDot{display:inline-block;width:8px;height:8px;border-radius:999px;background:var(--warn);margin-right:6px;transform:translateY(-1px)}
-    .empty{color:var(--mut);padding:16px;border:1px dashed #2a2b3c;border-radius:14px}
-  </style>
+    --btnBg:#e9efec;
+    --btnBd:#bfcdd1;
+  }
+
+  /* DARK (optional) */
+  [data-theme="dark"]{
+    --bg:#0b0b10;
+    --panel:#14151d;
+    --panel2:#0f1017;
+    --ink:#e8e8ef;
+    --mut:#a0a3b1;
+    --mut2:#a0a3b1;
+    --line:#232433;
+    --good:#1da45b;
+    --warn:#e0a800;
+
+    --hash:#8cf2bc;
+    --hashLine:#8cf2bc;
+    --hashFill: rgba(140,242,188,.14);
+
+    --temp:#9fb3ff;
+    --tempLine:#9fb3ff;
+
+    --shadow: 0 2px 12px rgba(0,0,0,.25);
+
+    --btnBg:#0f1017;
+    --btnBd:#232433;
+  }
+
+  html,body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font:14px/1.4 ui-sans-serif,system-ui,Segoe UI,Roboto,Arial;
+  }
+
+  header{
+    position:sticky; top:0; z-index:10;
+    background: linear-gradient(180deg, color-mix(in oklab, var(--panel), white 30%), rgba(0,0,0,0));
+    border-bottom:1px solid var(--line);
+    backdrop-filter: blur(6px);
+  }
+
+  /* centered, not full width */
+  .wrap{
+    width:min(920px, 92vw);
+    margin:0 auto;
+  }
+
+  .head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    padding:14px 10px;
+  }
+
+  .brand{
+    font-size:20px;
+    font-weight:950;
+    letter-spacing:.2px;
+  }
+
+  .headRight{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+
+  .btn{
+    background:var(--btnBg);
+    border:1px solid var(--btnBd);
+    color:var(--ink);
+    border-radius:12px;
+    padding:7px 10px;
+    cursor:pointer;
+    box-shadow:none;
+    font-weight:800;
+  }
+  .btn.active{
+    border-color: color-mix(in oklab, var(--good), var(--btnBd) 55%);
+    box-shadow: 0 0 0 2px color-mix(in oklab, var(--good), transparent 82%) inset;
+  }
+
+  main{
+    padding:14px 0 20px 0;
+    display:grid;
+    gap:14px;
+  }
+
+  .topStats{
+    display:grid;
+    grid-template-columns:repeat(3, minmax(0, 1fr));
+    gap:10px;
+  }
+  @media (max-width: 860px){
+    .topStats{grid-template-columns:1fr;}
+  }
+
+  .stat{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:var(--shadow);
+  }
+  .stat .k{color:var(--mut2); font-weight:900; font-size:12px; letter-spacing:.2px}
+  .stat .v{font-size:20px; font-weight:1000; margin-top:6px}
+  .stat .s{color:var(--mut2); margin-top:4px; font-weight:800; font-size:12px}
+
+  .panelBox{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:var(--shadow);
+  }
+
+  .panelTitle{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:10px;
+  }
+  .panelTitle h2{
+    margin:0;
+    font-size:13px;
+    font-weight:1000;
+    color:var(--mut);
+    letter-spacing:.2px;
+    text-transform:uppercase;
+  }
+
+  canvas{
+    width:100%;
+    height:280px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background:var(--panel2);
+  }
+  @media (max-width: 860px){
+    canvas{height:240px;}
+  }
+
+  /* HashWatcher-ish 2-column cards grid */
+  #grid{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:12px;
+  }
+  @media (max-width: 860px){
+    #grid{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:12px;
+    box-shadow:var(--shadow);
+  }
+
+  .cardTop{
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:10px;
+    margin-bottom:10px;
+  }
+
+  .minerName{
+    font-weight:1000;
+    font-size:15px;
+  }
+  .minerSub{
+    margin-top:3px;
+    font-size:12px;
+    color:var(--mut2);
+    font-weight:800;
+  }
+
+  .badge{
+    border:1px solid var(--line);
+    background: color-mix(in oklab, var(--panel2), transparent 10%);
+    border-radius:999px;
+    padding:3px 9px;
+    font-size:12px;
+    font-weight:950;
+    white-space:nowrap;
+  }
+
+  .dot{
+    width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px)
+  }
+  .dotOk{background:var(--good)}
+  .dotWarn{background:var(--warn)}
+
+  /* HashWatcher feel: big hashrate + big chip temp */
+  .hero{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    padding:10px;
+    border-radius:14px;
+    background: color-mix(in oklab, var(--panel2), white 10%);
+    border:1px solid color-mix(in oklab, var(--line), var(--panel2) 30%);
+    margin-bottom:10px;
+  }
+  .hero .hk{color:var(--mut2);font-weight:1000;font-size:12px}
+  .hero .hv{font-weight:1000;font-size:22px;margin-top:4px}
+  .hashNum{color:var(--hash)}
+  .tempNum{color:var(--temp)}
+
+  .twoCol{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+  }
+  .col{display:flex;flex-direction:column}
+
+  .row{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    padding:6px 0;
+    border-bottom:1px dashed color-mix(in oklab, var(--line), transparent 35%);
+  }
+  .row:last-child{border-bottom:0}
+  .k{color:var(--mut2); font-weight:900}
+  .v{font-weight:1000}
+
+  .empty{
+    color:var(--mut2);
+    padding:16px;
+    border:1px dashed var(--line);
+    border-radius:16px;
+    background:var(--panel);
+  }
+</style>
 </head>
+
 <body>
-  <header>
-    <div class="wrap" style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
-      <div class="title">MinerMonitor</div>
-      <div class="btnRow">
+<header>
+  <div class="wrap">
+    <div class="head">
+      <div class="brand">MinerMonitor</div>
+      <div class="headRight">
         <button class="btn active" id="r2h">2h</button>
         <button class="btn" id="r6h">6h</button>
         <button class="btn" id="r24h">24h</button>
+        <button class="btn" id="themeBtn" title="Toggle theme">Dark</button>
       </div>
     </div>
-  </header>
-
-  <div class="wrap">
-    <main>
-      <div class="panel">
-        <div class="panelTitle">
-          <h2>Hashrate & Temp</h2>
-        </div>
-        <canvas id="chart"></canvas>
-      </div>
-
-      <div id="grid"></div>
-    </main>
   </div>
+</header>
+
+<div class="wrap">
+  <main>
+    <div class="topStats">
+      <div class="stat">
+        <div class="k">Total Hash</div>
+        <div class="v" id="sumHash">—</div>
+        <div class="s" id="sumHashSub">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">Shares</div>
+        <div class="v" id="sumShares">—</div>
+        <div class="s" id="sumSharesSub">—</div>
+      </div>
+      <div class="stat">
+        <div class="k">Avg Temp</div>
+        <div class="v" id="avgTemp">—</div>
+        <div class="s" id="avgTempSub">—</div>
+      </div>
+    </div>
+
+    <div class="panelBox">
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2></div>
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div id="grid"></div>
+  </main>
+</div>
 
 <script>
-  const state = {
-    miners: [],
-    rangeMs: 2*60*60*1000
-  };
-
+  const state = { miners: [], rangeMs: 2*60*60*1000 };
   const $ = (id)=>document.getElementById(id);
 
-  // ---- Helpers ----
   function esc(str){
     return String(str).replace(/[&<>\"']/g, c => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     }[c]));
   }
-
-  function online(lastTs){
-    return (Date.now() - (lastTs||0)) < 60000;
-  }
+  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
   function fmt(v, d=2){
-    if(v === null || v === undefined) return "—";
     const n = Number(v);
-    if(Number.isFinite(n)) return n.toFixed(d);
-    return "—";
+    if(!Number.isFinite(n)) return "—";
+    return n.toFixed(d);
   }
-
   function fmtInt(v){
-    if(v === null || v === undefined) return "—";
     const n = Number(v);
-    if(Number.isFinite(n)) return String(Math.round(n));
-    return "—";
+    if(!Number.isFinite(n)) return "—";
+    return String(Math.round(n));
   }
-
   function fmtUptime(sec){
     const n = Number(sec);
     if(!Number.isFinite(n) || n <= 0) return "—";
     const d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return \`\${d}d \${h}h \${m}m\`;
   }
-
   function timeAgo(ts){
     if(!ts) return "—";
     const diff = Math.max(0, Date.now()-ts);
@@ -207,89 +422,176 @@ app.get("/", (req, res) => {
     const d=Math.floor(h/24); return d+"d";
   }
 
-  // Fix TH/s display:
-  // If the value looks like 2442, it is GH/s (from AxeOS) and should be 2.442 TH/s.
-  // If it already looks like 2.44, it stays 2.44.
-  function toThSmart(v){
+  function safeNum(v){
     const n = Number(v);
-    if(!Number.isFinite(n)) return null;
-    // heuristic: anything > 50 is almost certainly in GH/s, not TH/s
-    if(n > 50) return n / 1000;
-    return n;
+    return Number.isFinite(n) ? n : null;
   }
 
   function row(k, vHtml){
     return \`<div class="row"><span class="k">\${k}</span><span class="v">\${vHtml}</span></div>\`;
   }
 
-  // ---- Cards ----
+  function computeEfficiencyJTH(powerW, hashrateTh){
+    const p = safeNum(powerW);
+    const h = safeNum(hashrateTh);
+    if(p == null || h == null || h <= 0) return null;
+    return p / h; // W / TH == J/TH
+  }
+
+  function renderTopSummary(){
+    const miners = state.miners || [];
+    if(!miners.length){
+      $("sumHash").textContent = "—";
+      $("sumHashSub").textContent = "—";
+      $("sumShares").textContent = "—";
+      $("sumSharesSub").textContent = "—";
+      $("avgTemp").textContent = "—";
+      $("avgTempSub").textContent = "—";
+      return;
+    }
+
+    let totalHash = 0;
+    let onlineCount = 0;
+    let acc = 0, rej = 0;
+    let tempSum = 0, tempCount = 0;
+
+    for(const m of miners){
+      const x = m.metrics || {};
+      const on = online(m.last_ts);
+      if(on) onlineCount++;
+
+      const useH = safeNum(x.hashrate1mTh ?? x.hashrateTh);
+      if(useH != null) totalHash += useH;
+
+      const a = safeNum(x.sharesAccepted);
+      const r = safeNum(x.sharesRejected);
+      if(a != null) acc += a;
+      if(r != null) rej += r;
+
+      const t = safeNum(x.asicTempC ?? x.cpuTempC);
+      if(t != null){ tempSum += t; tempCount++; }
+    }
+
+    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
+    $("sumHashSub").textContent = onlineCount + " online · " + miners.length + " total";
+
+    $("sumShares").textContent = (acc + rej).toLocaleString();
+    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString() + " · Rejected " + rej.toLocaleString();
+
+    const avg = (tempCount ? (tempSum/tempCount) : null);
+    $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + "°C");
+    $("avgTempSub").textContent = "from " + tempCount + " miners";
+  }
+
   function renderCards(){
-    const el = $("grid");
-    if(!state.miners.length){
+    const el = document.getElementById("grid");
+    const miners = state.miners || [];
+    if(!miners.length){
       el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
       return;
     }
 
-    el.innerHTML = state.miners.map(m => {
+    el.innerHTML = miners.map(m => {
       const x = m.metrics || {};
       const isOn = online(m.last_ts);
 
-      const badgeClass = isOn ? "badge online" : "badge stale";
-      const dot = isOn ? '<span class="okDot"></span>' : '<span class="warnDot"></span>';
+      const dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
       const badgeText = isOn ? "Mining" : "Stale";
 
-      // IMPORTANT (compact) — like HashWatcher vibe
-      const hr1m = toThSmart(x.hashrate1mTh ?? x.hashrate1mGh ?? x.hashrate1m ?? x.hashrate_1m);
-      const hrNow = toThSmart(x.hashrateTh ?? x.hashrateGh ?? x.hashrate ?? x.hashRate);
-      const cpu = (x.cpuTempC ?? x.tempC ?? x.temp);
-      const asic = (x.asicTempC ?? x.temp2C ?? x.temp2);
-      const vr = (x.vrTempC ?? x.vrTemp);
-      const power = (x.powerW ?? x.power);
-      const fan = (x.fanRpm ?? x.fanrpm);
-      const acc = (x.sharesAccepted ?? x.accepted ?? x.shares_accepted);
-      const rej = (x.sharesRejected ?? x.rejected ?? x.shares_rejected);
-      const rejPct = (x.rejectRatePct ?? null);
-      const uptime = (x.uptimeSec ?? x.uptimeSeconds ?? x.uptime);
+      const hr1m = x.hashrate1mTh ?? null;
+      const hr10m = x.hashrate10mTh ?? null;
+      const hr1h  = x.hashrate1hTh ?? null;
+      const hrNow = x.hashrateTh ?? null;
 
-      // 10 lines total (5 left + 5 right)
+      const chip = x.asicTempC ?? null;
+      const cpu  = x.cpuTempC ?? null;
+      const vr   = x.vrTempC ?? null;
+
+      const power = x.powerW ?? null;
+      const fanRpm = x.fanRpm ?? null;
+
+      const accepted = x.sharesAccepted ?? null;
+      const rejected = x.sharesRejected ?? null;
+      const rejPct = x.rejectRatePct ?? x.errorPct ?? null;
+
+      const bestDiff = x.bestDiff ?? null;
+      const bestSess = x.bestSessionDiff ?? null;
+      const poolDiff = x.poolDifficulty ?? null;
+
+      const uptime = x.uptimeSec ?? null;
+      const ip = x.ipv4 ?? null;
+      const ssid = x.ssid ?? null;
+
+      const heroHash = (hr1m ?? hrNow);
+      const heroTemp = (chip ?? cpu);
+
+      const eff = x.efficiencyJTH ?? computeEfficiencyJTH(power, heroHash);
+
       const left = [
-        row("Hash (1m)", \`<span class="big hash">\${hr1m==null?"—":fmt(hr1m,2)} TH/s</span>\`),
-        row("Hash (now)", \`<span class="hash">\${hrNow==null?"—":fmt(hrNow,2)} TH/s</span>\`),
-        row("CPU Temp", \`<span class="temp">\${cpu==null?"—":fmt(cpu,1)} °C</span>\`),
-        row("ASIC Temp", \`<span class="temp">\${asic==null?"—":fmt(asic,1)} °C</span>\`),
-        row("VR Temp", \`<span class="temp">\${vr==null?"—":fmt(vr,1)} °C</span>\`)
+        row("Hash (10m)", hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")),
+        row("Hash (1h)",  hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")),
+        row("Efficiency", eff==null ? "—" : (fmt(eff,2) + " J/TH")),
+        row("Power",      power==null ? "—" : (fmt(power,1) + " W")),
+        row("Fan RPM",    fanRpm==null ? "—" : fmtInt(fanRpm))
       ].join("");
 
       const right = [
-        row("Power", \`\${power==null?"—":fmt(power,1)} W\`),
-        row("Fan RPM", \`\${fan==null?"—":fmtInt(fan)}\`),
-        row("Accepted", \`\${acc==null?"—":fmtInt(acc)}\`),
-        row("Rejected", \`\${rej==null?"—":fmtInt(rej)}\${rejPct==null?"":\` (\${fmt(rejPct,2)}%)\`}\`),
-        row("Uptime", \`\${fmtUptime(uptime)} · \${timeAgo(m.last_ts)}\`)
+        row("Accepted", accepted==null ? "—" : fmtInt(accepted)),
+        row("Rejected", rejected==null ? "—" : fmtInt(rejected)),
+        row("Error %",  rejPct==null ? "—" : (fmt(rejPct,2) + "%")),
+        row("Best Diff", bestDiff==null ? "—" : fmtInt(bestDiff)),
+        row("Uptime",   (fmtUptime(uptime) + " · " + timeAgo(m.last_ts)))
       ].join("");
+
+      const showDetails = (poolDiff!=null || bestSess!=null || vr!=null || cpu!=null);
 
       return \`
         <div class="card">
-          <div class="top">
+          <div class="cardTop">
             <div>
-              <div class="name">\${esc(m.name || m.id)}</div>
-              <div class="sub">\${esc(m.id)}</div>
+              <div class="minerName">\${esc(m.name || m.id)}</div>
+              <div class="minerSub">\${esc(m.id)}\${ip ? " · " + esc(ip) : ""}\${ssid ? " · " + esc(ssid) : ""}</div>
             </div>
-            <div class="\${badgeClass}">\${dot}\${badgeText}</div>
+            <div class="badge">\${dot}\${badgeText}</div>
           </div>
+
+          <div class="hero">
+            <div>
+              <div class="hk">Real Hashrate</div>
+              <div class="hv hashNum">\${heroHash==null ? "—" : fmt(heroHash,2)} TH/s</div>
+            </div>
+            <div>
+              <div class="hk">Chip Temperature</div>
+              <div class="hv tempNum">\${heroTemp==null ? "—" : fmt(heroTemp,1)} °C</div>
+            </div>
+          </div>
+
           <div class="twoCol">
             <div class="col">\${left}</div>
             <div class="col">\${right}</div>
+          </div>
+
+          <div style="margin-top:10px; color:var(--mut2); font-weight:900; font-size:12px;\${showDetails ? "" : "display:none;"}">
+            Details
+          </div>
+          <div class="twoCol" style="\${showDetails ? "" : "display:none;"}">
+            <div class="col">
+              \${row("CPU Temp", cpu==null ? "—" : (fmt(cpu,1) + " °C"))}
+              \${row("VR Temp",  vr==null ? "—" : (fmt(vr,1) + " °C"))}
+            </div>
+            <div class="col">
+              \${row("Pool Diff", poolDiff==null ? "—" : fmtInt(poolDiff))}
+              \${row("Best Session", bestSess==null ? "—" : fmtInt(bestSess))}
+            </div>
           </div>
         </div>
       \`;
     }).join("");
   }
 
-  // ---- Chart (clearer, dual-axis like your screenshot) ----
   function getSeries(){
     const m = state.miners[0];
-    if(!m) return { hash: [], temp: [] };
+    if(!m) return { hash: [], temp: [], name: "" };
 
     const cut = Date.now() - state.rangeMs;
     const hist = (m.history || []).filter(p => (p.ts||0) >= cut);
@@ -299,17 +601,16 @@ app.get("/", (req, res) => {
 
     for(const p of hist){
       const ts = p.ts;
-      const h = toThSmart(p.hashrate1mTh ?? p.hashrateTh ?? p.hashrate1mGh ?? p.hashrateGh);
-      const t = (p.asicTempC ?? p.cpuTempC ?? p.temp2 ?? p.temp);
+      const h = safeNum(p.hashrate1mTh ?? p.hashrateTh);
+      const t = safeNum(p.asicTempC ?? p.cpuTempC);
       if(Number.isFinite(ts) && Number.isFinite(h)) hash.push({x:ts, y:h});
-      if(Number.isFinite(ts) && Number.isFinite(Number(t))) temp.push({x:ts, y:Number(t)});
+      if(Number.isFinite(ts) && Number.isFinite(t)) temp.push({x:ts, y:t});
     }
-
     return { hash, temp, name: m.name || m.id };
   }
 
   function drawChart(){
-    const c = $("chart");
+    const c = document.getElementById("chart");
     const ctx = c.getContext("2d");
 
     const cssW = c.clientWidth;
@@ -321,17 +622,26 @@ app.get("/", (req, res) => {
 
     ctx.clearRect(0,0,cssW,cssH);
 
-    const padL=54, padR=54, padT=18, padB=28;
+    const padL=56, padR=56, padT=18, padB=28;
     const w = cssW - padL - padR;
     const h = cssH - padT - padB;
 
+    const css = getComputedStyle(document.documentElement);
+    const line = css.getPropertyValue("--line").trim();
+    const hashLine = css.getPropertyValue("--hashLine").trim();
+    const hashFill = css.getPropertyValue("--hashFill").trim();
+    const tempLine = css.getPropertyValue("--tempLine").trim();
+    const ink = css.getPropertyValue("--ink").trim();
+    const mut2 = css.getPropertyValue("--mut2").trim();
+
     // frame
-    ctx.strokeStyle = "#232433";
+    ctx.strokeStyle = line;
+    ctx.lineWidth = 1;
     ctx.strokeRect(padL, padT, w, h);
 
     const { hash, temp, name } = getSeries();
     if(hash.length < 2){
-      ctx.fillStyle = "#a0a3b1";
+      ctx.fillStyle = mut2;
       ctx.font = "12px ui-sans-serif,system-ui";
       ctx.fillText("Waiting for chart data…", padL+10, padT+24);
       return;
@@ -354,54 +664,57 @@ app.get("/", (req, res) => {
     const YH = (y)=> padT + h - ((y-minH)/(maxH-minH))*h;
     const YT = (y)=> padT + h - ((y-minT)/(maxT-minT))*h;
 
-    // grid (more clear)
-    ctx.strokeStyle = "#1b1c26";
-    for(let i=1;i<=5;i++){
-      const yy = padT + (h*i/6);
+    // grid
+    ctx.strokeStyle = line;
+    ctx.globalAlpha = 0.35;
+    for(let i=1;i<=6;i++){
+      const yy = padT + (h*i/7);
       ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL+w, yy); ctx.stroke();
     }
+    ctx.globalAlpha = 1;
 
-    // hashrate area + line
+    // hashrate line
     ctx.beginPath();
     ctx.moveTo(X(hash[0].x), YH(hash[0].y));
     for(let i=1;i<hash.length;i++) ctx.lineTo(X(hash[i].x), YH(hash[i].y));
-    ctx.strokeStyle = "#8cf2bc";
-    ctx.lineWidth = 2.4;
+    ctx.strokeStyle = hashLine;
+    ctx.lineWidth = 2.6;
     ctx.stroke();
 
+    // fill
     ctx.lineTo(X(hash[hash.length-1].x), padT+h);
     ctx.lineTo(X(hash[0].x), padT+h);
     ctx.closePath();
-    ctx.fillStyle = "rgba(140,242,188,0.14)";
+    ctx.fillStyle = hashFill;
     ctx.fill();
 
-    // temp line (right axis)
+    // temp line
     if(temp.length >= 2){
       ctx.beginPath();
       ctx.moveTo(X(temp[0].x), YT(temp[0].y));
       for(let i=1;i<temp.length;i++) ctx.lineTo(X(temp[i].x), YT(temp[i].y));
-      ctx.strokeStyle = "#9fb3ff";
-      ctx.lineWidth = 2.0;
+      ctx.strokeStyle = tempLine;
+      ctx.lineWidth = 2.2;
       ctx.stroke();
     }
 
-    // labels
+    // title
     ctx.font = "12px ui-sans-serif,system-ui";
-    ctx.fillStyle = "#e8e8ef";
+    ctx.fillStyle = ink;
     ctx.fillText(name, padL, 14);
 
     // left axis (hash)
-    ctx.fillStyle = "#8cf2bc";
-    ctx.fillText(maxH.toFixed(2), 8, padT+12);
-    ctx.fillText(minH.toFixed(2), 8, padT+h);
+    ctx.fillStyle = hashLine;
+    ctx.fillText(maxH.toFixed(2), 10, padT+12);
+    ctx.fillText(minH.toFixed(2), 10, padT+h);
 
     // right axis (temp)
-    ctx.fillStyle = "#9fb3ff";
+    ctx.fillStyle = tempLine;
     ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
     ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
 
     // time labels
-    ctx.fillStyle = "#a0a3b1";
+    ctx.fillStyle = mut2;
     const leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     const rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
     ctx.fillText(leftTime, padL, padT+h+20);
@@ -412,23 +725,39 @@ app.get("/", (req, res) => {
     const r = await fetch("/v1/miners", { cache: "no-store" });
     const j = await r.json();
     state.miners = j.miners || [];
+    renderTopSummary();
     renderCards();
     drawChart();
   }
 
   function setRange(ms){
     state.rangeMs = ms;
-    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
-    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
-    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
+    document.getElementById("r2h").classList.toggle("active", ms === 2*60*60*1000);
+    document.getElementById("r6h").classList.toggle("active", ms === 6*60*60*1000);
+    document.getElementById("r24h").classList.toggle("active", ms === 24*60*60*1000);
     drawChart();
   }
 
-  $("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
-  $("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
-  $("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("mm_theme", theme);
+    document.getElementById("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
+    drawChart();
+  }
+
+  document.getElementById("r2h").addEventListener("click", ()=>setRange(2*60*60*1000));
+  document.getElementById("r6h").addEventListener("click", ()=>setRange(6*60*60*1000));
+  document.getElementById("r24h").addEventListener("click", ()=>setRange(24*60*60*1000));
+
+  document.getElementById("themeBtn").addEventListener("click", ()=>{
+    const cur = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(cur === "dark" ? "light" : "dark");
+  });
 
   window.addEventListener("resize", drawChart);
+
+  const saved = localStorage.getItem("mm_theme");
+  applyTheme(saved === "dark" ? "dark" : "light");
 
   setInterval(refresh, 5000);
   refresh();
