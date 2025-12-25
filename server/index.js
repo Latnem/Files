@@ -303,42 +303,6 @@ app.get("/", (req, res) => {
     border-radius:16px;
     background:var(--panel);
   }
-
-  .addrLink{
-    color:#1e6fe6;
-    text-decoration:none;
-    font-weight:1000;
-  }
-  .addrLink:hover{ text-decoration:underline; }
-
-  .seg{
-    display:flex;
-    border:1px solid var(--line);
-    background:var(--panel2);
-    border-radius:999px;
-    padding:3px;
-    gap:3px;
-  }
-  .seg button{
-    height:32px;
-    border-radius:999px;
-    border:0;
-    background:transparent;
-    color:var(--ink);
-    cursor:pointer;
-    font-weight:1000;
-    padding:0 12px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    min-width:46px;
-  }
-  .seg button.sel{
-    background:var(--panel);
-    border:1px solid var(--line);
-    box-shadow: 0 10px 22px rgba(18,17,26,.10);
-  }
-  #themeSeg button{ width:38px; min-width:38px; padding:0; }
 </style>
 </head>
 
@@ -347,12 +311,11 @@ app.get("/", (req, res) => {
   <div class="wrap">
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
-      
       <div class="headRight">
-        <div class="seg" id="themeSeg" aria-label="Theme">
-          <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
-          <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
-        </div>
+        <button class="btn active" id="r2h">2h</button>
+        <button class="btn" id="r6h">6h</button>
+        <button class="btn" id="r24h">24h</button>
+        <button class="btn" id="themeBtn" title="Toggle theme">Dark</button>
       </div>
     </div>
   </div>
@@ -379,7 +342,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button type="button" id="rng6" aria-label="6 hours">6h</button><button type="button" id="rng12" aria-label="12 hours">12h</button><button type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -388,7 +351,7 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  var state = { miners: [], rangeMs: 6*60*60*1000 };
+  var state = { miners: [], rangeMs: 2*60*60*1000 };
 
   function $(id){ return document.getElementById(id); }
 
@@ -397,19 +360,6 @@ app.get("/", (req, res) => {
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
     });
   }
-
-  function iconSun(){
-    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" stroke-width="2"/>' +
-      '<path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
-    '</svg>';
-  }
-  function iconMoon(){
-    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
-      '<path d="M21 14.5A8.5 8.5 0 0 1 9.5 3a7 7 0 1 0 11.5 11.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
-    '</svg>';
-  }
-
 
   function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
@@ -577,11 +527,7 @@ app.get("/", (req, res) => {
         var eR = "";
         if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
         if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
-        if(poolUser){
-          var addr = String(poolUser);
-          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-          eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
-        }
+        if(poolUser) eL += row("Pool User", esc(shortUser(poolUser)), true);
 
         extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
@@ -595,7 +541,7 @@ app.get("/", (req, res) => {
           '<div class="cardTop">' +
             '<div>' +
               '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
-              '<div class="minerSub">' + esc(m.id) + "" + '</div>' +
+              '<div class="minerSub">' + esc(m.id) + (ip ? (" · " + esc(ip)) : "") + '</div>' +
             '</div>' +
             '<div class="badge">' + dot + badgeText + '</div>' +
           '</div>' +
@@ -766,70 +712,34 @@ app.get("/", (req, res) => {
 
   function setRange(ms){
     state.rangeMs = ms;
-    try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
-    var b6 = $("rng6"), b12 = $("rng12"), b24 = $("rng24");
-    if(b6 && b12 && b24){
-      b6.classList.toggle("sel", ms === 6*60*60*1000);
-      b12.classList.toggle("sel", ms === 12*60*60*1000);
-      b24.classList.toggle("sel", ms === 24*60*60*1000);
-    }
+    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
+    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
+    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
     drawChart();
   }
 
   function applyTheme(theme){
-    document.documentElement.setAttribute("data-theme", theme);
-    try { localStorage.setItem("mm_theme", theme); } catch(e){}
-    var dark = (theme === "dark");
-    var bL = $("segLight");
-    var bD = $("segDark");
-    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
-    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
-    if(bL && bD){
-      bL.classList.toggle("sel", !dark);
-      bD.classList.toggle("sel", dark);
-    }
-    drawChart();
-  }
-(theme){
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("mm_theme", theme);
     $("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
     drawChart();
   }
 
-  });
-  });
-  });
+  $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
+  $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
+  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });
 
+  $("themeBtn").addEventListener("click", function(){
+    var cur = document.documentElement.getAttribute("data-theme") || "light";
+    applyTheme(cur === "dark" ? "light" : "dark");
   });
 
   window.addEventListener("resize", drawChart);
 
-  // Range segmented (6h / 12h / 24h)
-  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
-  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
-
-  // Theme segmented (icon-only)
-  if($("segLight")) $("segLight").innerHTML = iconSun();
-  if($("segDark")) $("segDark").innerHTML = iconMoon();
-  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
-  if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
-
-
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
-  // Range init
-  var savedRange = null;
-  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
-  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
-    state.rangeMs = savedRange;
-  } else {
-    state.rangeMs = 6*60*60*1000;
-  }
-  setRange(state.rangeMs);
-setInterval(refresh, 5000);
+  setInterval(refresh, 5000);
   refresh();
 </script>
 </body>
