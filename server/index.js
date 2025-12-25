@@ -263,10 +263,9 @@ app.get("/", (req, res) => {
     white-space:nowrap;
   }
 
-  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
-  .dotOk{background:#238823} /* green */
-  .dotWarn{background:#FC8B03} /* orange */
-  .dotOff{background:#D2222D} /* red */
+  .dot{ width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px) }
+  .dotOk{background:var(--ok)}
+  .dotWarn{background:var(--warn)}
 
   .hero{
     display:grid;
@@ -613,7 +612,6 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
         if(poolUser){
         var addr = String(poolUser);
         var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        if(m.coin){ eL += row("Coin", esc(m.coin), true); }
         eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
       }
 extraHtml =
@@ -635,7 +633,7 @@ extraHtml =
 
           '<div class="hero">' +
             '<div>' +
-              '<div class="hk">Current Hashrate</div>' +
+              '<div class="hk">Real Hashrate</div>' +
               '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
@@ -853,55 +851,7 @@ extraHtml =
 
   setInterval(refresh, 5000);
   refresh();</script>
-
-        <script>
-        function renderCards(){
-            var el = $("grid");
-            var miners = state.miners || [];
-            if(!miners.length){
-                el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
-                return;
-            }
-
-            var out = "";
-            for(var i=0;i<miners.length;i++){
-                var m = miners[i];
-                var x = m.metrics || {};
-                var isOn = online(m.last_ts);
-
-                var dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
-                var badgeText = isOn ? "Mining" : "Stale";
-
-                var left = "";
-                left += row("Hashrate (10m)", (x.hashrate10mTh == null ? "—" : (fmt(x.hashrate10mTh,2) + " TH/s")), false);
-                left += row("Hashrate (1h)", (x.hashrate1hTh == null ? "—" : (fmt(x.hashrate1hTh,2) + " TH/s")), false);
-                left += row("Power", (x.powerW == null ? "—" : (fmt(x.powerW,1) + " W")), false);
-
-                var right = "";
-                right += row("Coin", esc(m.coin), true);  // Display the coin value
-                right += row("Pool User", esc(m.stratumUser), true);
-
-                out +=
-                    '<div class="card">' +
-                    '<div class="cardTop">' +
-                    '<div>' +
-                    '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
-                    '<div class="minerSub">' + esc(m.id) + "" + '</div>' +
-                    '</div>' +
-                    '<div class="badge">' + dot + badgeText + '</div>' +
-                    '</div>' +
-                    '<div class="twoCol">' +
-                    '<div class="col">' + left + '</div>' +
-                    '<div class="col">' + right + '</div>' +
-                    '</div>' +
-                    '</div>';
-            }
-
-            el.innerHTML = out;
-        }
-        </script>
-    </body>
-    
+</body>
 </html>`);
 });
 
