@@ -352,9 +352,9 @@ app.get("/", (req, res) => {
 
   /* Status dot colors (fixed) */
   .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
-  .dot.ok{ background:#16a34a; }      /* green */
-  .dot.stale{ background:#f59e0b; }   /* orange */
-  .dot.off{ background:#ef4444; }     /* red */
+  .dot.ok{ background:#00c853; }      /* bright green */      /* green */
+  .dot.stale{ background:#ffab00; }   /* bright orange */   /* orange */
+  .dot.off{ background:#ff1744; }     /* bright red */     /* red */
 
 </style>
 </head>
@@ -426,7 +426,16 @@ app.get("/", (req, res) => {
     '</svg>';
   }
 
-  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
+  
+  function shortAddr(addr){
+    var s = String(addr||"");
+    if(s.length >= 22){
+      return s.slice(0,5) + "***" + s.slice(-5);
+    }
+    return s;
+  }
+
+function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
   function fmt(v, d){
     if (d === undefined) d = 2;
@@ -595,7 +604,7 @@ app.get("/", (req, res) => {
         if(poolUser){
         var addr = String(poolUser);
         var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + '</a>', true);
+        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
       }
 extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
