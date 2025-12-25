@@ -14,7 +14,7 @@ function auth(req, res, next) {
   next();
 }
 
-// in-memory stores
+// In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 5000;
@@ -74,57 +74,62 @@ app.get("/", (req, res) => {
 <title>MinerMonitor</title>
 
 <style>
-  /* Palette inspired by your screenshot swatches:
-     #0b120b  #213023  #3d574b  #607e80  #8da4a5  #c7d5da */
+  /* Palette extracted from your screenshot (lightest -> darkest):
+     #9BC2B6  #4E9794  #1E6B66  #0E2A28  #071C1A
+     Light theme uses lightest -> darkest.
+     Dark theme uses darkest -> lightest.
+  */
 
   :root{
-    /* LIGHT (default) — forest/sage palette */
-    --bg: #eef2f0;
-    --panel: #f8fbfa;
-    --panel2: #f1f6f4;
-    --ink: #0b120b;
-    --mut: #3d574b;
-    --mut2:#607e80;
-    --line:#c7d5da;
-    --good:#3d574b;
-    --warn:#b87b00;
+    /* LIGHT (default) */
+    --bg: #9BC2B6;        /* lightest */
+    --panel: #EAF3F1;     /* cards */
+    --panel2: #CFE3DE;    /* chart bg */
+    --ink: #071C1A;       /* darkest text */
+    --mut: #1E6B66;
+    --mut2:#4E9794;
+    --line:#4E9794;
 
-    --hash:#213023;           /* hashrate numbers */
-    --hashLine:#3d574b;       /* hashrate line */
-    --hashFill: rgba(61,87,75,.18);
+    --good:#1E6B66;
+    --warn:#9A6A00;
 
-    --temp:#607e80;           /* temps */
-    --tempLine:#607e80;
+    --hash:#0E2A28;
+    --hashLine:#1E6B66;
+    --hashFill: rgba(30,107,102,.18);
 
-    --shadow: 0 6px 18px rgba(11,18,11,.08);
+    --temp:#4E9794;
+    --tempLine:#4E9794;
 
-    --btnBg:#e9efec;
-    --btnBd:#bfcdd1;
+    --shadow: 0 6px 18px rgba(7,28,26,.12);
+
+    --btnBg:#CFE3DE;
+    --btnBd:#4E9794;
   }
 
-  /* DARK (optional) */
   [data-theme="dark"]{
-    --bg:#0b0b10;
-    --panel:#14151d;
-    --panel2:#0f1017;
-    --ink:#e8e8ef;
-    --mut:#a0a3b1;
-    --mut2:#a0a3b1;
-    --line:#232433;
-    --good:#1da45b;
-    --warn:#e0a800;
+    /* DARK (optional) */
+    --bg:#071C1A;        /* darkest */
+    --panel:#0E2A28;
+    --panel2:#1E6B66;
+    --ink:#9BC2B6;       /* lightest text */
+    --mut:#4E9794;
+    --mut2:#9BC2B6;
+    --line:#1E6B66;
 
-    --hash:#8cf2bc;
-    --hashLine:#8cf2bc;
-    --hashFill: rgba(140,242,188,.14);
+    --good:#9BC2B6;
+    --warn:#E3B04B;
 
-    --temp:#9fb3ff;
-    --tempLine:#9fb3ff;
+    --hash:#9BC2B6;
+    --hashLine:#9BC2B6;
+    --hashFill: rgba(155,194,182,.18);
 
-    --shadow: 0 2px 12px rgba(0,0,0,.25);
+    --temp:#4E9794;
+    --tempLine:#4E9794;
 
-    --btnBg:#0f1017;
-    --btnBd:#232433;
+    --shadow: 0 4px 16px rgba(0,0,0,.45);
+
+    --btnBg:#0E2A28;
+    --btnBd:#1E6B66;
   }
 
   html,body{
@@ -136,7 +141,7 @@ app.get("/", (req, res) => {
 
   header{
     position:sticky; top:0; z-index:10;
-    background: linear-gradient(180deg, color-mix(in oklab, var(--panel), white 30%), rgba(0,0,0,0));
+    background: linear-gradient(180deg, color-mix(in oklab, var(--panel), white 18%), rgba(0,0,0,0));
     border-bottom:1px solid var(--line);
     backdrop-filter: blur(6px);
   }
@@ -523,8 +528,6 @@ app.get("/", (req, res) => {
       const rejPct = x.rejectRatePct ?? x.errorPct ?? null;
 
       const bestDiff = x.bestDiff ?? null;
-      const bestSess = x.bestSessionDiff ?? null;
-      const poolDiff = x.poolDifficulty ?? null;
 
       const uptime = x.uptimeSec ?? null;
 
@@ -561,25 +564,21 @@ app.get("/", (req, res) => {
         row("Uptime",   (fmtUptime(uptime) + " · " + timeAgo(m.last_ts)))
       ].join("");
 
-      // Extra rows (only if present) — NO "Details" header
+      // Extra rows (only if present) — no "Details" text
       const extraLeftRows = [];
       const extraRightRows = [];
 
       if (cpu != null) extraLeftRows.push(row("CPU Temp", fmt(cpu,1) + " °C"));
       if (vr != null)  extraLeftRows.push(row("VR Temp",  fmt(vr,1) + " °C"));
-      if (poolDiff != null) extraRightRows.push(row("Pool Diff", fmtInt(poolDiff)));
-      if (bestSess != null) extraRightRows.push(row("Best Session", fmtInt(bestSess)));
 
       if (freq != null) extraLeftRows.push(row("Freq", fmtInt(freq) + " MHz"));
-      if (rssi != null) extraRightRows.push(row("Wi-Fi", fmtInt(rssi) + " dBm"));
-
-      if (poolUrl || poolPort) extraLeftRows.push(row("Pool", esc(poolUrl || "—"), true));
-      if (poolPort != null) extraRightRows.push(row("Port", fmtInt(poolPort)));
+      if (poolUrl) extraLeftRows.push(row("Pool", esc(poolUrl), true));
       if (poolUser) extraLeftRows.push(row("User", esc(shortUser(poolUser)), true));
 
+      if (poolPort != null) extraRightRows.push(row("Port", fmtInt(poolPort)));
+      if (rssi != null) extraRightRows.push(row("Wi-Fi", fmtInt(rssi) + " dBm"));
       if (ver) extraRightRows.push(row("AxeOS", esc(ver)));
 
-      // If there's nothing extra, hide the extra grid completely
       const showExtra = extraLeftRows.length || extraRightRows.length;
 
       return \`
