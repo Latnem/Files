@@ -633,7 +633,7 @@ extraHtml =
 
           '<div class="hero">' +
             '<div>' +
-              '<div class="hk">Current Hashrate</div>' +
+              '<div class="hk">Real Hashrate</div>' +
               '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
