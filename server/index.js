@@ -72,7 +72,7 @@ app.get("/healthz", (req, res) => res.type("text").send("ok"));
 app.get("/", (req, res) => {
   // IMPORTANT: We keep ONE outer template string only.
   // Inside the <script>, we avoid backticks entirely (no nested template literals).
-  res.type("html").send(`<!doctype html>
+  res.set("Content-Type","text/html; charset=utf-8").send(`<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
