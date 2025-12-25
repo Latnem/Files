@@ -304,13 +304,7 @@ app.get("/", (req, res) => {
     background:var(--panel);
   }
 
-  .addrLink{
-    color:#1e6fe6;
-    text-decoration:none;
-    font-weight:1000;
-  }
-  .addrLink:hover{ text-decoration:underline; }
-
+  /* Segmented (icon-only for theme, text for range) */
   .seg{
     display:flex;
     border:1px solid var(--line);
@@ -318,8 +312,9 @@ app.get("/", (req, res) => {
     border-radius:999px;
     padding:3px;
     gap:3px;
+    align-items:center;
   }
-  .seg button{
+  .segBtn{
     height:32px;
     border-radius:999px;
     border:0;
@@ -333,12 +328,20 @@ app.get("/", (req, res) => {
     justify-content:center;
     min-width:46px;
   }
-  .seg button.sel{
+  .segBtn.sel{
     background:var(--panel);
     border:1px solid var(--line);
     box-shadow: 0 10px 22px rgba(18,17,26,.10);
   }
-  #themeSeg button{ width:38px; min-width:38px; padding:0; }
+  #themeSeg .segBtn{ width:38px; min-width:38px; padding:0; }
+  #themeSeg svg{ width:18px; height:18px; display:block; }
+
+  .addrLink{
+    color:#1e6fe6;
+    text-decoration:none;
+    font-weight:1000;
+  }
+  .addrLink:hover{ text-decoration:underline; }
 </style>
 </head>
 
@@ -347,11 +350,10 @@ app.get("/", (req, res) => {
   <div class="wrap">
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
-      
       <div class="headRight">
         <div class="seg" id="themeSeg" aria-label="Theme">
-          <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
-          <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
+          <button class="segBtn" type="button" id="segLight" aria-label="Light theme"></button>
+          <button class="segBtn" type="button" id="segDark" aria-label="Dark theme"></button>
         </div>
       </div>
     </div>
@@ -379,7 +381,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button type="button" id="rng6" aria-label="6 hours">6h</button><button type="button" id="rng12" aria-label="12 hours">12h</button><button type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -409,7 +411,6 @@ app.get("/", (req, res) => {
       '<path d="M21 14.5A8.5 8.5 0 0 1 9.5 3a7 7 0 1 0 11.5 11.5Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
     '</svg>';
   }
-
 
   function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
@@ -578,12 +579,11 @@ app.get("/", (req, res) => {
         if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
         if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
         if(poolUser){
-          var addr = String(poolUser);
-          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-          eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
-}
-
-        extraHtml =
+        var addr = String(poolUser);
+        var href = "https://mempool.space/address/" + encodeURIComponent(addr);
+        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
+      }
+extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
             '<div class="col">' + eL + '</div>' +
             '<div class="col">' + eR + '</div>' +
@@ -790,22 +790,8 @@ app.get("/", (req, res) => {
     }
     drawChart();
   }
-(theme){
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("mm_theme", theme);
-    $("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
-    drawChart();
-  }
 
-  });
-  });
-  });
-
-  });
-
-  window.addEventListener("resize", drawChart);
-
-  // Range segmented (6h / 12h / 24h)
+  // Range segmented
   if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
   if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
   if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
@@ -816,11 +802,13 @@ app.get("/", (req, res) => {
   if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
   if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
 
+  window.addEventListener("resize", drawChart);
 
+  // Init theme
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
-  // Range init
+  // Init range
   var savedRange = null;
   try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
   if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
@@ -829,9 +817,9 @@ app.get("/", (req, res) => {
     state.rangeMs = 6*60*60*1000;
   }
   setRange(state.rangeMs);
-setInterval(refresh, 5000);
-  refresh();
-</script>
+
+  setInterval(refresh, 5000);
+  refresh();</script>
 </body>
 </html>`);
 });
