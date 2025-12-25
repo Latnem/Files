@@ -1,5 +1,5 @@
-const express = require("express");
-const cors = require("cors");
+import express from "express";
+import cors from "cors";
 
 const app = express();
 app.use(cors());
@@ -35,7 +35,7 @@ app.post("/v1/ingest", auth, (req, res) => {
       if (!id) continue;
 
       const name = String((m && m.name) || id);
-      const tsRaw = m && m.metrics ? m.metrics.ts : undefined;
+      const tsRaw = (m && m.metrics) ? m.metrics.ts : undefined;
       const ts = Number(tsRaw ?? now);
       const safeTs = Number.isFinite(ts) ? ts : now;
 
@@ -70,6 +70,8 @@ app.get("/v1/miners", (req, res) => {
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
 app.get("/", (req, res) => {
+  // IMPORTANT: We keep ONE outer template string only.
+  // Inside the <script>, we avoid backticks entirely (no nested template literals).
   res.type("html").send(`<!doctype html>
 <html>
 <head>
@@ -78,7 +80,7 @@ app.get("/", (req, res) => {
 <title>MinerMonitor</title>
 
 <style>
-  /* ONLY your palette colors (and rgba derived from them):
+  /* Palette only (derived rgba ok):
      Teal:       #438981
      Dark green: #2C5444
      Navy:       #1D2B38
@@ -87,56 +89,56 @@ app.get("/", (req, res) => {
   */
 
   :root{
-    --c1:#438981; /* teal */
-    --c2:#2C5444; /* dark green */
-    --c3:#1D2B38; /* navy */
-    --c4:#3B576D; /* slate */
-    --c5:#8AA2A2; /* light */
+    --c1:#438981;
+    --c2:#2C5444;
+    --c3:#1D2B38;
+    --c4:#3B576D;
+    --c5:#8AA2A2;
 
-    /* Light (default) — airy but still palette-only */
-    --bg: var(--c5);
-    --panel: rgba(138,162,162,.32);      /* c5 */
-    --panel2: rgba(67,137,129,.18);      /* c1 */
+    /* Light theme default */
+    --bg: rgba(138,162,162,.18);
+    --panel: rgba(255,255,255,.72);
+    --panel2: rgba(67,137,129,.14);
     --ink: var(--c3);
     --mut: var(--c4);
-    --line: rgba(29,43,56,.18);          /* c3 */
+    --line: rgba(29,43,56,.18);
 
     --accent: var(--c1);
     --accent2: var(--c2);
 
     --hashLine: var(--c2);
-    --hashFill: rgba(67,137,129,.18);    /* c1 */
+    --hashFill: rgba(67,137,129,.18);
     --tempLine: var(--c4);
 
     --ok: var(--c2);
     --warn: var(--c4);
 
-    --btnBg: rgba(138,162,162,.28);      /* c5 */
-    --btnBd: rgba(29,43,56,.18);         /* c3 */
+    --btnBg: rgba(255,255,255,.65);
+    --btnBd: rgba(29,43,56,.18);
 
     --shadow: 0 10px 26px rgba(29,43,56,.10);
   }
 
   [data-theme="dark"]{
-    --bg: var(--c3);
-    --panel: rgba(44,84,68,.35);         /* c2 */
-    --panel2: rgba(59,87,109,.45);       /* c4 */
-    --ink: var(--c5);
-    --mut: rgba(138,162,162,.80);        /* c5 */
-    --line: rgba(138,162,162,.22);       /* c5 */
+    --bg: rgba(29,43,56,.92);
+    --panel: rgba(44,84,68,.35);
+    --panel2: rgba(59,87,109,.45);
+    --ink: rgba(231,240,240,.95);
+    --mut: rgba(138,162,162,.85);
+    --line: rgba(138,162,162,.22);
 
     --accent: var(--c1);
     --accent2: var(--c5);
 
     --hashLine: var(--c5);
-    --hashFill: rgba(59,87,109,.45);     /* c4 */
+    --hashFill: rgba(59,87,109,.45);
     --tempLine: var(--c1);
 
     --ok: var(--c5);
     --warn: var(--c1);
 
-    --btnBg: rgba(44,84,68,.40);         /* c2 */
-    --btnBd: rgba(138,162,162,.22);      /* c5 */
+    --btnBg: rgba(44,84,68,.40);
+    --btnBd: rgba(138,162,162,.22);
 
     --shadow: 0 12px 28px rgba(29,43,56,.45);
   }
@@ -154,7 +156,7 @@ app.get("/", (req, res) => {
     border-bottom:1px solid var(--line);
     backdrop-filter: blur(6px);
   }
-  [data-theme="dark"] header{ background: rgba(29,43,56,.60); }
+  [data-theme="dark"] header{ background: rgba(29,43,56,.72); }
 
   .wrap{ width:min(940px, 92vw); margin:0 auto; }
 
@@ -163,9 +165,7 @@ app.get("/", (req, res) => {
     gap:10px; padding:14px 8px;
   }
 
-  .brand{
-    font-size:22px; font-weight:1000; letter-spacing:.2px;
-  }
+  .brand{ font-size:22px; font-weight:1000; letter-spacing:.2px; }
   .brand .mark{ color: var(--accent); }
 
   .headRight{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
@@ -292,9 +292,9 @@ app.get("/", (req, res) => {
   }
   [data-theme="dark"] .row{ border-bottom-color: rgba(138,162,162,.18); }
   .row:last-child{ border-bottom:0; }
-  .k{ color:var(--mut); font-weight:900; }
-  .v{ font-weight:1000; text-align:right; }
-  .v.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+  .rk{ color:var(--mut); font-weight:900; }
+  .rv{ font-weight:1000; text-align:right; }
+  .rv.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
   .empty{
     color:var(--mut);
@@ -406,15 +406,15 @@ app.get("/", (req, res) => {
   }
 
   function row(k, vHtml, mono){
-    var cls = mono ? "v mono" : "v";
-    return '<div class="row"><span class="k">'+k+'</span><span class="'+cls+'">'+vHtml+'</span></div>';
+    var cls = mono ? "rv mono" : "rv";
+    return '<div class="row"><span class="rk">'+k+'</span><span class="'+cls+'">'+vHtml+'</span></div>';
   }
 
   function computeEfficiencyJTH(powerW, hashrateTh){
     var p = safeNum(powerW);
     var h = safeNum(hashrateTh);
     if(p == null || h == null || h <= 0) return null;
-    return p / h; // W/TH == J/TH
+    return p / h;
   }
 
   function renderTopSummary(){
@@ -507,7 +507,6 @@ app.get("/", (req, res) => {
       var heroTemp = (chip != null) ? chip : cpu;
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
-      // exactly 10 rows (5 per column)
       var left = "";
       left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
       left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
@@ -649,7 +648,6 @@ app.get("/", (req, res) => {
     function YH(y){ return padT + h - ((y-minH)/(maxH-minH))*h; }
     function YT(y){ return padT + h - ((y-minT)/(maxT-minT))*h; }
 
-    // grid
     ctx.strokeStyle = line;
     ctx.globalAlpha = 0.35;
     ctx.lineWidth = 1;
@@ -659,7 +657,6 @@ app.get("/", (req, res) => {
     }
     ctx.globalAlpha = 1;
 
-    // hash line
     ctx.beginPath();
     ctx.moveTo(X(hash[0].x), YH(hash[0].y));
     for(var j=1;j<hash.length;j++) ctx.lineTo(X(hash[j].x), YH(hash[j].y));
@@ -667,14 +664,12 @@ app.get("/", (req, res) => {
     ctx.lineWidth = 3;
     ctx.stroke();
 
-    // fill
     ctx.lineTo(X(hash[hash.length-1].x), padT+h);
     ctx.lineTo(X(hash[0].x), padT+h);
     ctx.closePath();
     ctx.fillStyle = hashFill;
     ctx.fill();
 
-    // temp line
     if(temp.length >= 2){
       ctx.beginPath();
       ctx.moveTo(X(temp[0].x), YT(temp[0].y));
@@ -684,12 +679,10 @@ app.get("/", (req, res) => {
       ctx.stroke();
     }
 
-    // title
     ctx.font = "12px ui-sans-serif,system-ui";
     ctx.fillStyle = ink;
     ctx.fillText(name, padL, 14);
 
-    // axes
     ctx.fillStyle = hashLine;
     ctx.fillText(maxH.toFixed(2), 10, padT+12);
     ctx.fillText(minH.toFixed(2), 10, padT+h);
@@ -699,8 +692,8 @@ app.get("/", (req, res) => {
     ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
-    var leftTime = new Date(minX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-    var rightTime = new Date(maxX).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    var leftTime = new Date(minX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    var rightTime = new Date(maxX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
     ctx.fillText(leftTime, padL, padT+h+20);
     ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
@@ -714,7 +707,7 @@ app.get("/", (req, res) => {
         renderCards();
         drawChart();
       })
-      .catch(function(){ /* ignore */ });
+      .catch(function(){ });
   }
 
   function setRange(ms){
