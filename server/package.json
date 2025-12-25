@@ -1,9 +1,8 @@
 {
-  "name": "hashwatcher-server",
+  "name": "minermonitor-server",
   "version": "0.1.0",
   "type": "module",
   "dependencies": {
-    "better-sqlite3": "^9.6.0",
     "cors": "^2.8.5",
     "express": "^4.21.1"
   }
