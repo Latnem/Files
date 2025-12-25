@@ -343,10 +343,7 @@ app.get("/", (req, res) => {
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
       <div class="headRight">
-        <button class="btn active" id="r2h">2h</button>
-        <button class="btn" id="r6h">6h</button>
-        <button class="btn" id="r24h">24h</button>
-        <div class="seg" id="themeSeg" aria-label="Theme">
+<div class="seg" id="themeSeg" aria-label="Theme">
   <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
   <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
 </div>
@@ -376,7 +373,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button type="button" data-range="6h" id="rng6" aria-label="6 hours">6h</button><button type="button" data-range="12h" id="rng12" aria-label="12 hours">12h</button><button type="button" data-range="24h" id="rng24" aria-label="24 hours">24h</button></div></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -385,7 +382,7 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  var state = { miners: [], rangeMs: 2*60*60*1000 };
+  var state = { miners: [], rangeMs: 6*60*60*1000 };
 
   function $(id){ return document.getElementById(id); }
 
@@ -758,37 +755,41 @@ extraHtml =
 
   function setRange(ms){
     state.rangeMs = ms;
-    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
-    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
-    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
-    drawChart();
-  }  function applyTheme(theme){
-    document.documentElement.setAttribute("data-theme", theme);
-    try { localStorage.setItem("mm_theme", theme); } catch(e){}
+    try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
 
-    var dark = (theme === "dark");
-    var bL = $("segLight");
-    var bD = $("segDark");
-
-    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
-    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
-
-    if(bL && bD){
-      bL.classList.toggle("sel", !dark);
-      bD.classList.toggle("sel", dark);
+    var b6 = $("rng6"), b12 = $("rng12"), b24 = $("rng24");
+    if(b6 && b12 && b24){
+      b6.classList.toggle("sel", ms === 6*60*60*1000);
+      b12.classList.toggle("sel", ms === 12*60*60*1000);
+      b24.classList.toggle("sel", ms === 24*60*60*1000);
     }
+    drawChart();
+  }
 
     drawChart();
   }drawChart();
   }
+window.addEventListener("resize", drawChart);
+  // Range segmented (6h / 12h / 24h)
+  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
+  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
+  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
 
-  $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
-  $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });window.addEventListener("resize", drawChart);
   // Theme segmented (icon-only)
   if($("segLight")) $("segLight").innerHTML = iconSun();
   if($("segDark")) $("segDark").innerHTML = iconMoon();
-  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
+  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); 
+  // Range init (ms)
+  var savedRange = null;
+  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
+  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
+    state.rangeMs = savedRange;
+  } else {
+    state.rangeMs = 6*60*60*1000;
+  }
+  // Sync segmented selection
+  setRange(state.rangeMs);
+});
   if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
 
 
