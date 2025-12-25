@@ -244,7 +244,7 @@ app.get("/", (req, res) => {
     canvas{height:240px;}
   }
 
-  /* HashWatcher-ish 2-column cards grid */
+  /* 2-column cards grid */
   #grid{
     display:grid;
     grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -297,7 +297,7 @@ app.get("/", (req, res) => {
   .dotOk{background:var(--good)}
   .dotWarn{background:var(--warn)}
 
-  /* HashWatcher feel: big hashrate + big chip temp */
+  /* big hashrate + chip temp */
   .hero{
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -329,7 +329,8 @@ app.get("/", (req, res) => {
   }
   .row:last-child{border-bottom:0}
   .k{color:var(--mut2); font-weight:900}
-  .v{font-weight:1000}
+  .v{font-weight:1000; text-align:right}
+  .v.mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;}
 
   .empty{
     color:var(--mut2);
@@ -427,8 +428,15 @@ app.get("/", (req, res) => {
     return Number.isFinite(n) ? n : null;
   }
 
-  function row(k, vHtml){
-    return \`<div class="row"><span class="k">\${k}</span><span class="v">\${vHtml}</span></div>\`;
+  function shortUser(u){
+    if(!u) return null;
+    const s = String(u);
+    if(s.length <= 12) return s;
+    return s.slice(0,6) + "…" + s.slice(-4);
+  }
+
+  function row(k, vHtml, mono=false){
+    return \`<div class="row"><span class="k">\${k}</span><span class="v \${mono ? "mono":""}">\${vHtml}</span></div>\`;
   }
 
   function computeEfficiencyJTH(powerW, hashrateTh){
@@ -519,6 +527,15 @@ app.get("/", (req, res) => {
       const poolDiff = x.poolDifficulty ?? null;
 
       const uptime = x.uptimeSec ?? null;
+
+      const freq = x.frequencyMhz ?? null;
+      const rssi = x.wifiRSSI ?? null;
+      const ver  = x.axeOSVersion ?? null;
+
+      const poolUrl  = x.stratumURL ?? null;
+      const poolPort = x.stratumPort ?? null;
+      const poolUser = x.stratumUser ?? null;
+
       const ip = x.ipv4 ?? null;
       const ssid = x.ssid ?? null;
 
@@ -527,6 +544,7 @@ app.get("/", (req, res) => {
 
       const eff = x.efficiencyJTH ?? computeEfficiencyJTH(power, heroHash);
 
+      // Main 10 rows (5 left + 5 right)
       const left = [
         row("Hash (10m)", hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")),
         row("Hash (1h)",  hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")),
@@ -543,7 +561,26 @@ app.get("/", (req, res) => {
         row("Uptime",   (fmtUptime(uptime) + " · " + timeAgo(m.last_ts)))
       ].join("");
 
-      const showDetails = (poolDiff!=null || bestSess!=null || vr!=null || cpu!=null);
+      // Extra rows (only if present) — NO "Details" header
+      const extraLeftRows = [];
+      const extraRightRows = [];
+
+      if (cpu != null) extraLeftRows.push(row("CPU Temp", fmt(cpu,1) + " °C"));
+      if (vr != null)  extraLeftRows.push(row("VR Temp",  fmt(vr,1) + " °C"));
+      if (poolDiff != null) extraRightRows.push(row("Pool Diff", fmtInt(poolDiff)));
+      if (bestSess != null) extraRightRows.push(row("Best Session", fmtInt(bestSess)));
+
+      if (freq != null) extraLeftRows.push(row("Freq", fmtInt(freq) + " MHz"));
+      if (rssi != null) extraRightRows.push(row("Wi-Fi", fmtInt(rssi) + " dBm"));
+
+      if (poolUrl || poolPort) extraLeftRows.push(row("Pool", esc(poolUrl || "—"), true));
+      if (poolPort != null) extraRightRows.push(row("Port", fmtInt(poolPort)));
+      if (poolUser) extraLeftRows.push(row("User", esc(shortUser(poolUser)), true));
+
+      if (ver) extraRightRows.push(row("AxeOS", esc(ver)));
+
+      // If there's nothing extra, hide the extra grid completely
+      const showExtra = extraLeftRows.length || extraRightRows.length;
 
       return \`
         <div class="card">
@@ -571,18 +608,9 @@ app.get("/", (req, res) => {
             <div class="col">\${right}</div>
           </div>
 
-          <div style="margin-top:10px; color:var(--mut2); font-weight:900; font-size:12px;\${showDetails ? "" : "display:none;"}">
-            Details
-          </div>
-          <div class="twoCol" style="\${showDetails ? "" : "display:none;"}">
-            <div class="col">
-              \${row("CPU Temp", cpu==null ? "—" : (fmt(cpu,1) + " °C"))}
-              \${row("VR Temp",  vr==null ? "—" : (fmt(vr,1) + " °C"))}
-            </div>
-            <div class="col">
-              \${row("Pool Diff", poolDiff==null ? "—" : fmtInt(poolDiff))}
-              \${row("Best Session", bestSess==null ? "—" : fmtInt(bestSess))}
-            </div>
+          <div class="twoCol" style="margin-top:10px;\${showExtra ? "" : "display:none;"}">
+            <div class="col">\${extraLeftRows.join("")}</div>
+            <div class="col">\${extraRightRows.join("")}</div>
           </div>
         </div>
       \`;
