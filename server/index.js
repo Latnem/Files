@@ -17,7 +17,59 @@ function auth(req, res, next) {
 
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
-const historyStore = new Map();  // id -> [{ts, ...metrics}]
+const historyStore = new Map();
+
+function normalizeMetrics(m){
+  const x = m || {};
+  // Prefer already-normalized keys if present
+  const out = { ...x };
+
+  // Temps (AxeOS style)
+  if(out.asicTempC == null && x.temp != null) out.asicTempC = Number(x.temp);
+  if(out.cpuTempC  == null && x.temp2 != null) out.cpuTempC  = Number(x.temp2);
+  if(out.vrTempC   == null && x.vrTemp != null) out.vrTempC  = Number(x.vrTemp);
+
+  // Power / fan
+  if(out.powerW == null && x.power != null) out.powerW = Number(x.power);
+  if(out.fanRpm == null && x.fanrpm != null) out.fanRpm = Number(x.fanrpm);
+
+  // Shares / uptime
+  if(out.uptimeSec == null && x.uptimeSeconds != null) out.uptimeSec = Number(x.uptimeSeconds);
+  if(out.sharesAccepted == null && x.sharesAccepted != null) out.sharesAccepted = Number(x.sharesAccepted);
+  if(out.sharesRejected == null && x.sharesRejected != null) out.sharesRejected = Number(x.sharesRejected);
+
+  // Best diff
+  if(out.bestDiff == null && x.bestDiff != null) out.bestDiff = Number(x.bestDiff);
+
+  // Pool
+  if(out.stratumURL == null && x.stratumURL != null) out.stratumURL = String(x.stratumURL);
+  if(out.stratumPort == null && x.stratumPort != null) out.stratumPort = Number(x.stratumPort);
+  if(out.stratumUser == null && x.stratumUser != null) out.stratumUser = String(x.stratumUser);
+
+  // Hashrate: AxeOS reports in GH/s (e.g., 2461 = 2.461 TH/s)
+  function ghToTh(v){
+    const n = Number(v);
+    if(!Number.isFinite(n)) return null;
+    return n / 1000;
+  }
+
+  // Main displayed hashrateTh uses 1m if present else current
+  if(out.hashrateTh == null){
+    if(x.hashRate_1m != null) out.hashrateTh = ghToTh(x.hashRate_1m);
+    else if(x.hashRate != null) out.hashrateTh = ghToTh(x.hashRate);
+  }
+  if(out.hashrate10mTh == null && x.hashRate_10m != null) out.hashrate10mTh = ghToTh(x.hashRate_10m);
+  if(out.hashrate1hTh  == null && x.hashRate_1h  != null) out.hashrate1hTh  = ghToTh(x.hashRate_1h);
+
+  // Some agents may already send GH/s as hashrate_gh
+  if(out.hashrateTh == null && x.hashrate_gh != null){
+    const n = Number(x.hashrate_gh);
+    if(Number.isFinite(n)) out.hashrateTh = n / 1000;
+  }
+
+  return out;
+}
+  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 6000;
 
 function clampHistory(id) {
@@ -39,7 +91,8 @@ app.post("/v1/ingest", auth, (req, res) => {
       const ts = Number(tsRaw ?? now);
       const safeTs = Number.isFinite(ts) ? ts : now;
 
-      const metrics = (m && m.metrics) ? m.metrics : {};
+      const metricsRaw = (m && m.metrics) ? m.metrics : {};
+      const metrics = normalizeMetrics(metricsRaw);
       minersStore.set(id, { id, name, last_ts: safeTs, metrics });
 
       const point = { ts: safeTs, ...metrics };
