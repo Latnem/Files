@@ -263,9 +263,10 @@ app.get("/", (req, res) => {
     white-space:nowrap;
   }
 
-  .dot{ width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px) }
-  .dotOk{background:var(--ok)}
-  .dotWarn{background:var(--warn)}
+  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .dotOk{background:#238823} /* green */
+  .dotWarn{background:#FC8B03} /* orange */
+  .dotOff{background:#D2222D} /* red */
 
   .hero{
     display:grid;
