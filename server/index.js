@@ -388,23 +388,23 @@ app.get("/", (req, res) => {
     <div class="topStats">
       <div class="stat">
         <div class="k">Total Hash</div>
-        <div class="v" id="sumHash">—</div>
-        <div class="s" id="sumHashSub">—</div>
+        <div class="v" id="sumHash">â€”</div>
+        <div class="s" id="sumHashSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Shares</div>
-        <div class="v" id="sumShares">—</div>
-        <div class="s" id="sumSharesSub">—</div>
+        <div class="v" id="sumShares">â€”</div>
+        <div class="s" id="sumSharesSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Avg Temp</div>
-        <div class="v" id="avgTemp">—</div>
-        <div class="s" id="avgTempSub">—</div>
+        <div class="v" id="avgTemp">â€”</div>
+        <div class="s" id="avgTempSub">â€”</div>
       </div>
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (Â°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -449,25 +449,33 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return n.toFixed(d);
   }
 
   function fmtInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return String(Math.round(n));
   }
 
+  // Comma-formatted integer (display only)
+  function fmtIntComma(v){
+    var n = Number(v);
+    if(!Number.isFinite(n)) return "â€”";
+    return Math.round(n).toLocaleString("en-US");
+  }
+
+
   function fmtUptime(sec){
     var n = Number(sec);
-    if(!Number.isFinite(n) || n <= 0) return "—";
+    if(!Number.isFinite(n) || n <= 0) return "â€”";
     var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return d+"d "+h+"h "+m+"m";
   }
 
   function timeAgo(ts){
-    if(!ts) return "—";
+    if(!ts) return "â€”";
     var diff = Math.max(0, Date.now()-ts);
     var s = Math.floor(diff/1000);
     if(s<60) return s+"s";
@@ -485,7 +493,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
     if(!u) return null;
     var s = String(u);
     if(s.length <= 12) return s;
-    return s.slice(0,6) + "…" + s.slice(-4);
+    return s.slice(0,6) + "â€¦" + s.slice(-4);
   }
 
   function row(k, vHtml, mono){
@@ -503,12 +511,12 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
   function renderTopSummary(){
     var miners = state.miners || [];
     if(!miners.length){
-      $("sumHash").textContent = "—";
-      $("sumHashSub").textContent = "—";
-      $("sumShares").textContent = "—";
-      $("sumSharesSub").textContent = "—";
-      $("avgTemp").textContent = "—";
-      $("avgTempSub").textContent = "—";
+      $("sumHash").textContent = "â€”";
+      $("sumHashSub").textContent = "â€”";
+      $("sumShares").textContent = "â€”";
+      $("sumSharesSub").textContent = "â€”";
+      $("avgTemp").textContent = "â€”";
+      $("avgTempSub").textContent = "â€”";
       return;
     }
 
@@ -535,14 +543,14 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       if(t != null){ tempSum += t; tempCount++; }
     }
 
-    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
-    $("sumHashSub").textContent = onlineCount + " online · " + miners.length + " total";
+    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
+    $("sumHashSub").textContent = onlineCount + " online Â· " + miners.length + " total";
 
-    $("sumShares").textContent = String(acc + rej);
-    $("sumSharesSub").textContent = "Accepted " + String(acc) + " · Rejected " + String(rej);
+    $("sumShares").textContent = fmtIntComma(acc + rej);
+    $("sumSharesSub").textContent = "Accepted " + fmtIntComma(acc) + " Â· Rejected " + fmtIntComma(rej);
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + "°C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + "Â°C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -550,7 +558,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
     var el = $("grid");
     var miners = state.miners || [];
     if(!miners.length){
-      el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
+      el.innerHTML = '<div class="empty">Waiting for agent dataâ€¦</div>';
       return;
     }
 
@@ -591,17 +599,17 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
       var left = "";
-      left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
-      left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
-      left += row("Power",      (power==null ? "—" : (fmt(power,1) + " W")), false);
-      left += row("Fan RPM",    (fanRpm==null ? "—" : fmtInt(fanRpm)), false);
+      left += row("Hash (10m)", (hr10m==null ? "â€”" : (fmt(hr10m,2) + " TH/s")), false);
+      left += row("Hash (1h)",  (hr1h==null ? "â€”" : (fmt(hr1h,2) + " TH/s")), false);
+      left += row("Power",      (power==null ? "â€”" : (fmt(power,1) + " W")), false);
+      left += row("Fan RPM",    (fanRpm==null ? "â€”" : fmtIntComma(fanRpm)), false);
       left += row("Uptime",     fmtUptime(uptime), false);
 
       var right = "";
-      right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
-      right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
-      right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
-      right += row("Best Diff", (bestDiff==null ? "—" : fmtInt(bestDiff)), false);
+      right += row("Accepted", (accepted==null ? "â€”" : fmtIntComma(accepted)), false);
+      right += row("Rejected", (rejected==null ? "â€”" : fmtIntComma(rejected)), false);
+      right += row("Efficiency", (eff==null ? "â€”" : (fmt(eff,2) + " J/TH")), false);
+      right += row("Best Diff", (bestDiff==null ? "â€”" : fmtIntComma(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
       var extraHtml = "";
@@ -635,11 +643,11 @@ extraHtml =
           '<div class="hero">' +
             '<div>' +
               '<div class="hk">Real Hashrate</div>' +
-              '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
+              '<div class="hv hashNum">' + (heroHash==null ? "â€”" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
               '<div class="hk">Chip Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "—" : fmt(heroTemp,1)) + ' °C</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' Â°C</div>' +
             '</div>' +
           '</div>' +
 
@@ -710,7 +718,7 @@ extraHtml =
     if(hash.length < 2){
       ctx.fillStyle = mut;
       ctx.font = "12px ui-sans-serif,system-ui";
-      ctx.fillText("Waiting for chart data…", padL+10, padT+24);
+      ctx.fillText("Waiting for chart dataâ€¦", padL+10, padT+24);
       return;
     }
 
@@ -774,8 +782,8 @@ extraHtml =
     ctx.fillText(minH.toFixed(2), 10, padT+h);
 
     ctx.fillStyle = tempLine;
-    ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
-    ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
+    ctx.fillText(maxT.toFixed(0)+"Â°", padL+w+10, padT+12);
+    ctx.fillText(minT.toFixed(0)+"Â°", padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
     var leftTime = new Date(minX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
