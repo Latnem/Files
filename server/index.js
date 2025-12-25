@@ -88,85 +88,61 @@ app.get("/", (req, res) => {
      Light:      #8AA2A2
   */
 
-  
-  /* Theme palette:
-     #12111A  #001A0C  #22513F  #609998  #94B3B6  #CFD1D1
-  */
-
   :root{
-    --p0:#12111A; /* near-black */
-    --p1:#001A0C; /* deep green */
-    --p2:#22513F; /* forest */
-    --p3:#609998; /* teal */
-    --p4:#94B3B6; /* mist */
-    --p5:#CFD1D1; /* fog */
+    --c1:#438981;
+    --c2:#2C5444;
+    --c3:#1D2B38;
+    --c4:#3B576D;
+    --c5:#8AA2A2;
 
-    /* Light theme (default) */
-    --bg: rgba(207,209,209,.55);
-    --panel: #FFFFFF;                 /* white cards (per your request) */
-    --panel2: rgba(148,179,182,.26);
-    --ink: var(--p0);
-    --mut: rgba(34,81,63,.88);
-    --line: rgba(148,179,182,.55);
+    /* Light theme default */
+    --bg: rgba(138,162,162,.18);
+    --panel: rgba(255,255,255,.72);
+    --panel2: rgba(67,137,129,.14);
+    --ink: var(--c3);
+    --mut: var(--c4);
+    --line: rgba(29,43,56,.18);
 
-    --accent: var(--p3);
-    --accent2: var(--p2);
+    --accent: var(--c1);
+    --accent2: var(--c2);
 
-    --hashLine: var(--p2);
-    --hashFill: rgba(96,153,152,.22);
-    --tempLine: var(--p3);
+    --hashLine: var(--c2);
+    --hashFill: rgba(67,137,129,.18);
+    --tempLine: var(--c4);
 
-    --ok: var(--p2);
-    --warn: var(--p3);
+    --ok: var(--c2);
+    --warn: var(--c4);
 
-    --btnBg: rgba(255,255,255,.78);
-    --btnBd: rgba(148,179,182,.55);
+    --btnBg: rgba(255,255,255,.65);
+    --btnBd: rgba(29,43,56,.18);
 
-    --shadow: 0 10px 26px rgba(18,17,26,.12);
+    --shadow: 0 10px 26px rgba(29,43,56,.10);
   }
 
-  /* Optional alternate mapping (same palette, different emphasis) */
-  html[data-style="alt"]{
-    --accent: var(--p2);
-    --accent2: var(--p3);
-    --hashLine: var(--p3);
-    --hashFill: rgba(34,81,63,.18);
-    --tempLine: var(--p2);
-    --panel2: rgba(96,153,152,.16);
+  [data-theme="dark"]{
+    --bg: rgba(29,43,56,.92);
+    --panel: rgba(44,84,68,.35);
+    --panel2: rgba(59,87,109,.45);
+    --ink: rgba(231,240,240,.95);
+    --mut: rgba(138,162,162,.85);
+    --line: rgba(138,162,162,.22);
+
+    --accent: var(--c1);
+    --accent2: var(--c5);
+
+    --hashLine: var(--c5);
+    --hashFill: rgba(59,87,109,.45);
+    --tempLine: var(--c1);
+
+    --ok: var(--c5);
+    --warn: var(--c1);
+
+    --btnBg: rgba(44,84,68,.40);
+    --btnBd: rgba(138,162,162,.22);
+
+    --shadow: 0 12px 28px rgba(29,43,56,.45);
   }
 
-  html[data-theme="dark"]{
-    --bg: rgba(18,17,26,.95);
-    --panel: rgba(0,26,12,.62);
-    --panel2: rgba(34,81,63,.55);
-    --ink: rgba(207,209,209,.96);
-    --mut: rgba(148,179,182,.88);
-    --line: rgba(148,179,182,.22);
-
-    --accent: var(--p3);
-    --accent2: var(--p4);
-
-    --hashLine: var(--p4);
-    --hashFill: rgba(34,81,63,.58);
-    --tempLine: var(--p3);
-
-    --ok: var(--p4);
-    --warn: var(--p3);
-
-    --btnBg: rgba(0,26,12,.38);
-    --btnBd: rgba(148,179,182,.22);
-
-    --shadow: 0 12px 28px rgba(18,17,26,.45);
-  }
-
-  html[data-theme="dark"][data-style="alt"]{
-    --accent: var(--p4);
-    --accent2: var(--p3);
-    --hashLine: var(--p3);
-    --hashFill: rgba(96,153,152,.18);
-    --tempLine: var(--p4);
-    --panel2: rgba(96,153,152,.26);
-  }
   html,body{
     margin:0;
     background:var(--bg);
@@ -320,16 +296,6 @@ app.get("/", (req, res) => {
   .rv{ font-weight:1000; text-align:right; }
   .rv.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
-  .rv.mono{ word-break: break-all; }
-
-  a.addrLink{
-    color:#1a73e8; /* requested blue */
-    text-decoration:none;
-    font-weight:1000;
-  }
-  a.addrLink:hover{ text-decoration:underline; }
-
-
   .empty{
     color:var(--mut);
     padding:16px;
@@ -373,7 +339,6 @@ app.get("/", (req, res) => {
         <button class="btn active" id="r2h">2h</button>
         <button class="btn" id="r6h">6h</button>
         <button class="btn" id="r24h">24h</button>
-        <button class="btn" id="styleBtn" title="Toggle palette option">Alt</button>
         <div class="seg" id="themeSeg" aria-label="Theme">
   <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
   <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
@@ -600,12 +565,7 @@ app.get("/", (req, res) => {
         var eR = "";
         if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
         if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
-        if(poolUser){
-          var addr = String(poolUser);
-          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-          var linkHtml = '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + '</a>';
-          eL += row("Pool User", linkHtml, true);
-        }
+        if(poolUser) eL += row("Pool User", esc(shortUser(poolUser)), true);
 
         extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
@@ -807,25 +767,9 @@ app.get("/", (req, res) => {
     drawChart();
   }
 
-
-  function applyStyle(style){
-    document.documentElement.setAttribute("data-style", style);
-    localStorage.setItem("mm_style", style);
-    $("styleBtn").textContent = (style === "alt") ? "Base" : "Alt";
-    drawChart();
-  }
   $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
   $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });
-
-
-  $("styleBtn").addEventListener("click", function(){
-    var cur = document.documentElement.getAttribute("data-style") || "base";
-    applyStyle(cur === "alt" ? "base" : "alt");
-  });window.addEventListener("resize", drawChart);
-
-  var savedStyle = localStorage.getItem("mm_style");
-  applyStyle(savedStyle === "alt" ? "alt" : "base");
+  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });window.addEventListener("resize", drawChart);
 
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
