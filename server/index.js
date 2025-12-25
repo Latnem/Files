@@ -327,6 +327,13 @@ app.get("/", (req, res) => {
     box-shadow: 0 10px 22px rgba(18,17,26,.10);
   }
 
+
+  .addrLink{
+    color: #1e6fe6;
+    text-decoration: none;
+    font-weight: 1000;
+  }
+  .addrLink:hover{ text-decoration: underline; }
 </style>
 </head>
 
@@ -336,7 +343,10 @@ app.get("/", (req, res) => {
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
       <div class="headRight">
-<div class="seg" id="themeSeg" aria-label="Theme">
+        <button class="btn active" id="r2h">2h</button>
+        <button class="btn" id="r6h">6h</button>
+        <button class="btn" id="r24h">24h</button>
+        <div class="seg" id="themeSeg" aria-label="Theme">
   <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
   <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
 </div>
@@ -366,7 +376,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><select id="rangeSel" class="rangeSel" aria-label="Chart range"><option value="6h">6h</option><option value="12h">12h</option><option value="24h">24h</option></select></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -375,13 +385,15 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  var state = { miners: [], rangeMs: 6*60*60*1000 };
+  var state = { miners: [], rangeMs: 2*60*60*1000 };
 
   function $(id){ return document.getElementById(id); }
 
   function esc(str){
     return String(str).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
 
   function iconSun(){
     return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">' +
@@ -395,11 +407,7 @@ app.get("/", (req, res) => {
     '</svg>';
   }
 
-[c];
-    });
-  }
-
-  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
+  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
   function fmt(v, d){
     if (d === undefined) d = 2;
@@ -562,9 +570,12 @@ app.get("/", (req, res) => {
         var eR = "";
         if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
         if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
-        if(poolUser) eL += row("Pool User", esc(shortUser(poolUser)), true);
-
-        extraHtml =
+        if(poolUser){
+          var addr = String(poolUser);
+          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
+          eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
+        }
+extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
             '<div class="col">' + eL + '</div>' +
             '<div class="col">' + eR + '</div>' +
@@ -733,26 +744,6 @@ app.get("/", (req, res) => {
     ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
 
-  function applyTheme(theme){
-    document.documentElement.setAttribute("data-theme", theme);
-    try { localStorage.setItem("mm_theme", theme); } catch(e){}
-
-    var dark = (theme === "dark");
-    var bL = $("segLight");
-    var bD = $("segDark");
-
-    // ensure icons are present
-    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
-    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
-
-    if(bL && bD){
-      bL.classList.toggle("sel", !dark);
-      bD.classList.toggle("sel", dark);
-    }
-
-    drawChart();
-  }
-
   function refresh(){
     fetch("/v1/miners", { cache: "no-store" })
       .then(function(r){ return r.json(); })
@@ -765,38 +756,46 @@ app.get("/", (req, res) => {
       .catch(function(){ });
   }
 
-    function setRange(ms){
+  function setRange(ms){
     state.rangeMs = ms;
-    try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
-    var sel = $("rangeSel");
-    if(sel){
-      if(ms === 6*60*60*1000) sel.value = "6h";
-      else if(ms === 12*60*60*1000) sel.value = "12h";
-      else sel.value = "24h";
+    $("r2h").classList.toggle("active", ms === 2*60*60*1000);
+    $("r6h").classList.toggle("active", ms === 6*60*60*1000);
+    $("r24h").classList.toggle("active", ms === 24*60*60*1000);
+    drawChart();
+  }  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("mm_theme", theme); } catch(e){}
+
+    var dark = (theme === "dark");
+    var bL = $("segLight");
+    var bD = $("segDark");
+
+    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
+    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
+
+    if(bL && bD){
+      bL.classList.toggle("sel", !dark);
+      bD.classList.toggle("sel", dark);
     }
+
     drawChart();
+  }drawChart();
   }
-    drawChart();
-  }
-window.addEventListener("resize", drawChart);
+
+  $("r2h").addEventListener("click", function(){ setRange(2*60*60*1000); });
+  $("r6h").addEventListener("click", function(){ setRange(6*60*60*1000); });
+  $("r24h").addEventListener("click", function(){ setRange(24*60*60*1000); });window.addEventListener("resize", drawChart);
+  // Theme segmented (icon-only)
+  if($("segLight")) $("segLight").innerHTML = iconSun();
+  if($("segDark")) $("segDark").innerHTML = iconMoon();
+  if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
+  if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
+
 
   var saved = localStorage.getItem("mm_theme");
-  // Range init (ms)
-  var savedRange = null;
-  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
-  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
-    state.rangeMs = savedRange;
-  } else {
-    state.rangeMs = 6*60*60*1000;
-  }
   applyTheme(saved === "dark" ? "dark" : "light");
-  // Sync dropdown to current range
-  if($("rangeSel")){
-    if(state.rangeMs === 12*60*60*1000) $("rangeSel").value = "12h";
-    else if(state.rangeMs === 24*60*60*1000) $("rangeSel").value = "24h";
-    else $("rangeSel").value = "6h";
-  }
-setInterval(refresh, 5000);
+
+  setInterval(refresh, 5000);
   refresh();
 </script>
 </body>
