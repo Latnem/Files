@@ -350,12 +350,20 @@ app.get("/", (req, res) => {
   }
 
 
-  /* Status dot colors (fixed) */
-  .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; box-shadow: 0 0 0 3px rgba(0,0,0,.06); }
-  .dot.ok{ background:#00c853; }      /* bright green */      /* green */
-  .dot.stale{ background:#ffab00; }   /* bright orange */   /* orange */
-  .dot.off{ background:#ff1744; }     /* bright red */     /* red */
+  /* Status dot colors (updated user palette) */
+  .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; }
+  .dot.ok{ background:#238823; box-shadow:0 0 0 3px rgba(35,136,35,.25); }   /* green */
+  .dot.stale{ background:#FC8B03; box-shadow:0 0 0 3px rgba(252,139,3,.25); } /* orange */
+  .dot.off{ background:#D2222D; box-shadow:0 0 0 3px rgba(210,34,45,.25); }   /* red */   /* red */   /* bright red */     /* bright red */     /* red */
 
+
+  /* Half-width centered divider inside card */
+  .halfDivider{
+    width:50%;
+    height:1px;
+    background:var(--line);
+    margin:10px auto;
+  }
 </style>
 </head>
 
