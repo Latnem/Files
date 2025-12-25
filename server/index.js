@@ -304,6 +304,13 @@ app.get("/", (req, res) => {
     background:var(--panel);
   }
 
+  .addrLink{
+    color:#1e6fe6;
+    text-decoration:none;
+    font-weight:1000;
+  }
+  .addrLink:hover{ text-decoration:underline; }
+
   .seg{
     display:flex;
     border:1px solid var(--line);
@@ -313,23 +320,25 @@ app.get("/", (req, res) => {
     gap:3px;
   }
   .seg button{
-    width:38px; height:32px;
+    height:32px;
     border-radius:999px;
     border:0;
     background:transparent;
     color:var(--ink);
     cursor:pointer;
-    display:flex; align-items:center; justify-content:center;
+    font-weight:1000;
+    padding:0 12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:46px;
   }
   .seg button.sel{
     background:var(--panel);
     border:1px solid var(--line);
     box-shadow: 0 10px 22px rgba(18,17,26,.10);
   }
-
-
-  .addrLink{ color:#1e6fe6; text-decoration:none; font-weight:1000; }
-  .addrLink:hover{ text-decoration:underline; }
+  #themeSeg button{ width:38px; min-width:38px; padding:0; }
 </style>
 </head>
 
@@ -338,10 +347,12 @@ app.get("/", (req, res) => {
   <div class="wrap">
     <div class="head">
       <div class="brand">Miner<span class="mark">Monitor</span></div>
-      <div class="headRight"><div class="seg" id="themeSeg" aria-label="Theme">
-  <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
-  <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
-</div>
+      
+      <div class="headRight">
+        <div class="seg" id="themeSeg" aria-label="Theme">
+          <button type="button" data-mode="light" id="segLight" aria-label="Light theme"></button>
+          <button type="button" data-mode="dark" id="segDark" aria-label="Dark theme"></button>
+        </div>
       </div>
     </div>
   </div>
@@ -399,9 +410,6 @@ app.get("/", (req, res) => {
     '</svg>';
   }
 
-[c];
-    });
-  }
 
   function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
@@ -542,6 +550,9 @@ app.get("/", (req, res) => {
       var poolUrl  = (x.stratumURL != null) ? x.stratumURL : null;
       var poolPort = (x.stratumPort != null) ? x.stratumPort : null;
       var poolUser = (x.stratumUser != null) ? x.stratumUser : null;
+
+      var ip = (x.ipv4 != null) ? x.ipv4 : null;
+
       var heroHash = (hr1m != null) ? hr1m : hrNow;
       var heroTemp = (chip != null) ? chip : cpu;
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
@@ -571,7 +582,8 @@ app.get("/", (req, res) => {
           var href = "https://mempool.space/address/" + encodeURIComponent(addr);
           eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(addr) + "</a>", true);
         }
-extraHtml =
+
+        extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
             '<div class="col">' + eL + '</div>' +
             '<div class="col">' + eR + '</div>' +
@@ -583,7 +595,7 @@ extraHtml =
           '<div class="cardTop">' +
             '<div>' +
               '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
-              '<div class="minerSub">' + esc(m.id)+ '</div>' +
+              '<div class="minerSub">' + esc(m.id) + "" + '</div>' +
             '</div>' +
             '<div class="badge">' + dot + badgeText + '</div>' +
           '</div>' +
@@ -763,11 +775,40 @@ extraHtml =
     }
     drawChart();
   }
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    try { localStorage.setItem("mm_theme", theme); } catch(e){}
+    var dark = (theme === "dark");
+    var bL = $("segLight");
+    var bD = $("segDark");
+    if(bL && !bL.innerHTML.trim()) bL.innerHTML = iconSun();
+    if(bD && !bD.innerHTML.trim()) bD.innerHTML = iconMoon();
+    if(bL && bD){
+      bL.classList.toggle("sel", !dark);
+      bD.classList.toggle("sel", dark);
+    }
     drawChart();
   }
-});
-});
-});window.addEventListener("resize", drawChart);
+(theme){
+    document.documentElement.setAttribute("data-theme", theme);
+    localStorage.setItem("mm_theme", theme);
+    $("themeBtn").textContent = (theme === "dark") ? "Light" : "Dark";
+    drawChart();
+  }
+
+  });
+  });
+  });
+
+  });
+
+  window.addEventListener("resize", drawChart);
+
+  // Range segmented (6h / 12h / 24h)
+  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
+  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
+  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
 
   // Theme segmented (icon-only)
   if($("segLight")) $("segLight").innerHTML = iconSun();
@@ -775,10 +816,20 @@ extraHtml =
   if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
   if($("segDark")) $("segDark").addEventListener("click", function(){ applyTheme("dark"); });
 
+
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
-  setInterval(refresh, 5000);
+  // Range init
+  var savedRange = null;
+  try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
+  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
+    state.rangeMs = savedRange;
+  } else {
+    state.rangeMs = 6*60*60*1000;
+  }
+  setRange(state.rangeMs);
+setInterval(refresh, 5000);
   refresh();
 </script>
 </body>
