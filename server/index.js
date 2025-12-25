@@ -404,7 +404,7 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (Â°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (\u00B0C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -544,13 +544,13 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
     }
 
     $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
-    $("sumHashSub").textContent = onlineCount + " online Â· " + miners.length + " total";
+    $("sumHashSub").textContent = onlineCount + " online \u00B7 " + miners.length + " total";
 
     $("sumShares").textContent = fmtIntComma(acc + rej);
-    $("sumSharesSub").textContent = "Accepted " + fmtIntComma(acc) + " Â· Rejected " + fmtIntComma(rej);
+    $("sumSharesSub").textContent = "Accepted " + fmtIntComma(acc) + " \u00B7 Rejected " + fmtIntComma(rej);
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + "Â°C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + "\u00B0C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -647,7 +647,7 @@ extraHtml =
             '</div>' +
             '<div>' +
               '<div class="hk">Chip Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' Â°C</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' \u00B0C</div>' +
             '</div>' +
           '</div>' +
 
@@ -782,8 +782,8 @@ extraHtml =
     ctx.fillText(minH.toFixed(2), 10, padT+h);
 
     ctx.fillStyle = tempLine;
-    ctx.fillText(maxT.toFixed(0)+"Â°", padL+w+10, padT+12);
-    ctx.fillText(minT.toFixed(0)+"Â°", padL+w+10, padT+h);
+    ctx.fillText(maxT.toFixed(0)+"\u00B0", padL+w+10, padT+12);
+    ctx.fillText(minT.toFixed(0)+"\u00B0", padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
     var leftTime = new Date(minX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
