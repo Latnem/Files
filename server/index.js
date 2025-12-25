@@ -14,9 +14,9 @@ function auth(req, res, next) {
   next();
 }
 
-// In-memory stores
-const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
-const historyStore = new Map();  // id -> [{ts, ...metrics}]
+// in-memory stores
+const minersStore = new Map(); // id -> {id,name,last_ts,metrics}
+const historyStore = new Map(); // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 5000;
 
 function clampHistory(id) {
@@ -74,62 +74,65 @@ app.get("/", (req, res) => {
 <title>MinerMonitor</title>
 
 <style>
-  /* Palette extracted from your screenshot (lightest -> darkest):
-     #9BC2B6  #4E9794  #1E6B66  #0E2A28  #071C1A
-     Light theme uses lightest -> darkest.
-     Dark theme uses darkest -> lightest.
+  /* ONLY colors from your succulent palette (sampled):
+     #F7FDFC (near-white)
+     #B9C5B4 (sage)
+     #5F8E82 (seafoam teal)
+     #416658 (forest)
+     #114642 (deep teal)
+     #161E25 (near-black blue/green)
   */
 
   :root{
     /* LIGHT (default) */
-    --bg: #9BC2B6;        /* lightest */
-    --panel: #EAF3F1;     /* cards */
-    --panel2: #CFE3DE;    /* chart bg */
-    --ink: #071C1A;       /* darkest text */
-    --mut: #1E6B66;
-    --mut2:#4E9794;
-    --line:#4E9794;
+    --bg:     #F7FDFC;
+    --panel:  #F7FDFC;
+    --panel2: #B9C5B4;
+    --ink:    #161E25;
+    --mut:    #416658;
+    --mut2:   #5F8E82;
+    --line:   #5F8E82;
 
-    --good:#1E6B66;
-    --warn:#9A6A00;
+    --good:   #416658;
+    --warn:   #114642;
 
-    --hash:#0E2A28;
-    --hashLine:#1E6B66;
-    --hashFill: rgba(30,107,102,.18);
+    --hash:     #114642;
+    --hashLine: #416658;
+    --hashFill: #B9C5B4;
 
-    --temp:#4E9794;
-    --tempLine:#4E9794;
+    --temp:     #5F8E82;
+    --tempLine: #5F8E82;
 
-    --shadow: 0 6px 18px rgba(7,28,26,.12);
+    --btnBg: #B9C5B4;
+    --btnBd: #5F8E82;
 
-    --btnBg:#CFE3DE;
-    --btnBd:#4E9794;
+    --shadow: none; /* palette-only: no rgba shadows */
   }
 
   [data-theme="dark"]{
-    /* DARK (optional) */
-    --bg:#071C1A;        /* darkest */
-    --panel:#0E2A28;
-    --panel2:#1E6B66;
-    --ink:#9BC2B6;       /* lightest text */
-    --mut:#4E9794;
-    --mut2:#9BC2B6;
-    --line:#1E6B66;
+    /* DARK */
+    --bg:     #161E25;
+    --panel:  #114642;
+    --panel2: #416658;
+    --ink:    #F7FDFC;
+    --mut:    #B9C5B4;
+    --mut2:   #5F8E82;
+    --line:   #5F8E82;
 
-    --good:#9BC2B6;
-    --warn:#E3B04B;
+    --good:   #B9C5B4;
+    --warn:   #5F8E82;
 
-    --hash:#9BC2B6;
-    --hashLine:#9BC2B6;
-    --hashFill: rgba(155,194,182,.18);
+    --hash:     #F7FDFC;
+    --hashLine: #B9C5B4;
+    --hashFill: #416658;
 
-    --temp:#4E9794;
-    --tempLine:#4E9794;
+    --temp:     #5F8E82;
+    --tempLine: #5F8E82;
 
-    --shadow: 0 4px 16px rgba(0,0,0,.45);
+    --btnBg: #114642;
+    --btnBd: #5F8E82;
 
-    --btnBg:#0E2A28;
-    --btnBd:#1E6B66;
+    --shadow: none;
   }
 
   html,body{
@@ -141,9 +144,8 @@ app.get("/", (req, res) => {
 
   header{
     position:sticky; top:0; z-index:10;
-    background: linear-gradient(180deg, color-mix(in oklab, var(--panel), white 18%), rgba(0,0,0,0));
+    background:var(--panel);
     border-bottom:1px solid var(--line);
-    backdrop-filter: blur(6px);
   }
 
   /* centered, not full width */
@@ -185,8 +187,7 @@ app.get("/", (req, res) => {
     font-weight:800;
   }
   .btn.active{
-    border-color: color-mix(in oklab, var(--good), var(--btnBd) 55%);
-    box-shadow: 0 0 0 2px color-mix(in oklab, var(--good), transparent 82%) inset;
+    border-color: var(--good);
   }
 
   main{
@@ -288,7 +289,7 @@ app.get("/", (req, res) => {
 
   .badge{
     border:1px solid var(--line);
-    background: color-mix(in oklab, var(--panel2), transparent 10%);
+    background:var(--panel2);
     border-radius:999px;
     padding:3px 9px;
     font-size:12px;
@@ -309,8 +310,8 @@ app.get("/", (req, res) => {
     gap:10px;
     padding:10px;
     border-radius:14px;
-    background: color-mix(in oklab, var(--panel2), white 10%);
-    border:1px solid color-mix(in oklab, var(--line), var(--panel2) 30%);
+    background:var(--panel2);
+    border:1px solid var(--line);
     margin-bottom:10px;
   }
   .hero .hk{color:var(--mut2);font-weight:1000;font-size:12px}
@@ -330,7 +331,7 @@ app.get("/", (req, res) => {
     justify-content:space-between;
     gap:12px;
     padding:6px 0;
-    border-bottom:1px dashed color-mix(in oklab, var(--line), transparent 35%);
+    border-bottom:1px dashed var(--line);
   }
   .row:last-child{border-bottom:0}
   .k{color:var(--mut2); font-weight:900}
@@ -528,6 +529,8 @@ app.get("/", (req, res) => {
       const rejPct = x.rejectRatePct ?? x.errorPct ?? null;
 
       const bestDiff = x.bestDiff ?? null;
+      const bestSess = x.bestSessionDiff ?? null;
+      const poolDiff = x.poolDifficulty ?? null;
 
       const uptime = x.uptimeSec ?? null;
 
@@ -547,7 +550,6 @@ app.get("/", (req, res) => {
 
       const eff = x.efficiencyJTH ?? computeEfficiencyJTH(power, heroHash);
 
-      // Main 10 rows (5 left + 5 right)
       const left = [
         row("Hash (10m)", hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")),
         row("Hash (1h)",  hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")),
@@ -564,19 +566,21 @@ app.get("/", (req, res) => {
         row("Uptime",   (fmtUptime(uptime) + " · " + timeAgo(m.last_ts)))
       ].join("");
 
-      // Extra rows (only if present) — no "Details" text
       const extraLeftRows = [];
       const extraRightRows = [];
 
       if (cpu != null) extraLeftRows.push(row("CPU Temp", fmt(cpu,1) + " °C"));
       if (vr != null)  extraLeftRows.push(row("VR Temp",  fmt(vr,1) + " °C"));
+      if (poolDiff != null) extraRightRows.push(row("Pool Diff", fmtInt(poolDiff)));
+      if (bestSess != null) extraRightRows.push(row("Best Session", fmtInt(bestSess)));
 
       if (freq != null) extraLeftRows.push(row("Freq", fmtInt(freq) + " MHz"));
+      if (rssi != null) extraRightRows.push(row("Wi-Fi", fmtInt(rssi) + " dBm"));
+
       if (poolUrl) extraLeftRows.push(row("Pool", esc(poolUrl), true));
+      if (poolPort != null) extraRightRows.push(row("Port", fmtInt(poolPort)));
       if (poolUser) extraLeftRows.push(row("User", esc(shortUser(poolUser)), true));
 
-      if (poolPort != null) extraRightRows.push(row("Port", fmtInt(poolPort)));
-      if (rssi != null) extraRightRows.push(row("Wi-Fi", fmtInt(rssi) + " dBm"));
       if (ver) extraRightRows.push(row("AxeOS", esc(ver)));
 
       const showExtra = extraLeftRows.length || extraRightRows.length;
@@ -661,7 +665,6 @@ app.get("/", (req, res) => {
     const ink = css.getPropertyValue("--ink").trim();
     const mut2 = css.getPropertyValue("--mut2").trim();
 
-    // frame
     ctx.strokeStyle = line;
     ctx.lineWidth = 1;
     ctx.strokeRect(padL, padT, w, h);
@@ -693,19 +696,18 @@ app.get("/", (req, res) => {
 
     // grid
     ctx.strokeStyle = line;
-    ctx.globalAlpha = 0.35;
+    ctx.lineWidth = 1;
     for(let i=1;i<=6;i++){
       const yy = padT + (h*i/7);
       ctx.beginPath(); ctx.moveTo(padL, yy); ctx.lineTo(padL+w, yy); ctx.stroke();
     }
-    ctx.globalAlpha = 1;
 
     // hashrate line
     ctx.beginPath();
     ctx.moveTo(X(hash[0].x), YH(hash[0].y));
     for(let i=1;i<hash.length;i++) ctx.lineTo(X(hash[i].x), YH(hash[i].y));
     ctx.strokeStyle = hashLine;
-    ctx.lineWidth = 2.6;
+    ctx.lineWidth = 3;
     ctx.stroke();
 
     // fill
@@ -721,7 +723,7 @@ app.get("/", (req, res) => {
       ctx.moveTo(X(temp[0].x), YT(temp[0].y));
       for(let i=1;i<temp.length;i++) ctx.lineTo(X(temp[i].x), YT(temp[i].y));
       ctx.strokeStyle = tempLine;
-      ctx.lineWidth = 2.2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
     }
 
