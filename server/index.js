@@ -18,7 +18,7 @@ function auth(req, res, next) {
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 6,000;
+const HISTORY_MAX_POINTS = 6000;
 
 function clampHistory(id) {
   const arr = historyStore.get(id) || [];
