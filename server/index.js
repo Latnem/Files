@@ -7,9 +7,14 @@ app.use(express.json());
 // In-memory store for miner data (using Map to store unique miners by ID)
 let minersStore = new Map();
 
+// Utility function to format numbers with commas (thousands separator)
+function formatNumberWithCommas(number) {
+    if (number == null) return '0';
+    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 // Sample endpoint to fetch miner data
 app.get('/v1/miners', (req, res) => {
-    // Return all stored miner data as an array
     res.json({
         miners: Array.from(minersStore.values())  // Convert Map to Array for response
     });
