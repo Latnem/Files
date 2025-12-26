@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -29,11 +30,9 @@ app.post('/v1/ingest', (req, res) => {
         // If the miner already exists in the store (based on ID), update the miner
         if (minersStore.has(miner.id)) {
             console.log(`Updating data for miner: ${miner.name}`);
-            // If the miner ID exists, update the existing miner with the new data (name, metrics, etc.)
             minersStore.set(miner.id, miner);  // Update the existing miner data
         } else {
             console.log(`Adding new miner: ${miner.name}`);
-            // If the miner ID doesn't exist, add it as a new entry
             minersStore.set(miner.id, miner);  // Add new miner to the store
         }
     });
@@ -48,11 +47,13 @@ app.delete('/v1/miners', (req, res) => {
     res.json({ message: 'Miner data cleared' });
 });
 
+// Serve static files (e.g., the HTML page) from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Start the server and listen on the specified port
 app.listen(PORT, () => {
     console.log(`MinerMonitor running on port ${PORT}`);
 });
-
 
     <!doctype html>
 <html>
@@ -854,6 +855,3 @@ extraHtml =
 </body>
 </html>`);
 });
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
