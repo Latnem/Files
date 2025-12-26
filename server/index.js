@@ -1,70 +1,78 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import express from "express";
+import cors from "cors";
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1024kb' }));
+app.use(express.json({ limit: "1024kb" }));
 
+// Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
 
-// Middleware for authenticating API requests
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!API_KEY || token !== API_KEY) {
-    return res.status(401).json({ error: "Unauthorized - Invalid API Key" });
-  }
+  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
   next();
 }
 
-// In-memory storage for miner data
-let minersStore = new Map();
+// In-memory stores
+const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
+const historyStore = new Map();  // id -> [{ts, ...metrics}]
+const HISTORY_MAX_POINTS = 6000;
 
-// Route to ingest data from the Agent
-app.post("/ingest", auth, (req, res) => {
+function clampHistory(id) {
+  const arr = historyStore.get(id) || [];
+  if (arr.length > HISTORY_MAX_POINTS) historyStore.set(id, arr.slice(-HISTORY_MAX_POINTS));
+}
+
+app.post("/v1/ingest", auth, (req, res) => {
   try {
-    const miners = req.body.miners || [];
-    miners.forEach(miner => {
-      minersStore.set(miner.id, miner);  // Store miner data in memory
-    });
+    const miners = (req.body && req.body.miners) ? req.body.miners : [];
+    const now = Date.now();
+
+    for (const m of miners) {
+      const id = String((m && m.id) || "").trim();
+      if (!id) continue;
+
+      const name = String((m && m.name) || id);
+      const tsRaw = (m && m.metrics) ? m.metrics.ts : undefined;
+      const ts = Number(tsRaw ?? now);
+      const safeTs = Number.isFinite(ts) ? ts : now;
+
+      const metrics = (m && m.metrics) ? m.metrics : {};
+      minersStore.set(id, { id, name, last_ts: safeTs, metrics });
+
+      const point = { ts: safeTs, ...metrics };
+      const arr = historyStore.get(id) || [];
+      arr.push(point);
+      historyStore.set(id, arr);
+      clampHistory(id);
+    }
+
     res.json({ ok: true, count: miners.length });
   } catch (e) {
-    console.error('Error ingesting data:', e);
-    res.status(500).json({ error: "Server Error - Ingest" });
+    console.error("ingest error:", e);
+    res.status(500).json({ error: "server_error" });
   }
 });
 
-// Route to fetch miner data
 app.get("/v1/miners", (req, res) => {
-  try {
-    const miners = Array.from(minersStore.values()).map(m => ({
-      id: m.id,
-      name: m.name,
-      metrics: m.metrics
+  const miners = Array.from(minersStore.values())
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+    .map((m) => ({
+      ...m,
+      history: (historyStore.get(m.id) || []).slice(-2500),
     }));
-    res.json({ miners });
-  } catch (e) {
-    console.error('Error fetching miners:', e);
-    res.status(500).json({ error: "Server Error - Fetching Miners" });
-  }
+
+  res.json({ miners });
 });
 
-// Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-// Start the server on the port set by Render (default to port 80)
-const PORT = process.env.PORT || 80;  // Default to port 80 for Render
-app.listen(PORT, () => {
-  console.log(`MinerMonitor server running on port ${PORT}`);
-});
-
-
-
-
-  <!doctype html>
+app.get("/", (req, res) => {
+  // IMPORTANT: We keep ONE outer template string only.
+  // Inside the <script>, we avoid backticks entirely (no nested template literals).
+  res.type("html").send(`<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -255,9 +263,10 @@ app.listen(PORT, () => {
     white-space:nowrap;
   }
 
-  .dot{ width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px) }
-  .dotOk{background:var(--ok)}
-  .dotWarn{background:var(--warn)}
+  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
+  .dotOk{background:#238823} /* green */
+  .dotWarn{background:#FC8B03} /* orange */
+  .dotOff{background:#D2222D} /* red */
 
   .hero{
     display:grid;
