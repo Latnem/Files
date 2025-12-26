@@ -45,9 +45,10 @@ app.get("/v1/miners", (req, res) => {
   res.json({ miners });
 });
 
-// Start server
+// Start the server
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
-  console.log(`MinerMonitor Server is running on port ${PORT}`);
+  console.log(`MinerMonitor server running on port ${PORT}`);
 });
 
 // In-memory stores
@@ -91,23 +92,36 @@ app.post("/v1/ingest", auth, (req, res) => {
   }
 });
 
-app.get("/v1/miners", (req, res) => {
-  const miners = Array.from(minersStore.values())
-    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
-    .map((m) => ({
-      ...m,
-      history: (historyStore.get(m.id) || []).slice(-2500),
-    }));
+// Middleware for authenticating API requests
+function auth(req, res, next) {
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
+  next();
+}
 
+// In-memory storage for miner data
+let minersStore = new Map();
+
+// Route to fetch miner data
+app.get("/v1/miners", (req, res) => {
+  const miners = Array.from(minersStore.values()).map(m => ({
+    id: m.id,
+    name: m.name,
+    metrics: m.metrics
+  }));
   res.json({ miners });
 });
 
+// Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
 app.get("/", (req, res) => {
   // IMPORTANT: We keep ONE outer template string only.
   // Inside the <script>, we avoid backticks entirely (no nested template literals).
-  res.type("html").send(`<!doctype html>
+  res.type("html").send(`
+  
+<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
