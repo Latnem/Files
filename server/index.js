@@ -873,6 +873,7 @@ document.querySelectorAll('.v').forEach(function(element) {
     }
 });
 
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     // Ensure number formatting is applied after DOM is fully loaded
     function formatNumberWithCommas(num) {
@@ -900,3 +901,4 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+</script>
