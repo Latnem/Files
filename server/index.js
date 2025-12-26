@@ -875,13 +875,13 @@ document.querySelectorAll('.v').forEach(function(element) {
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Ensure number formatting is applied after DOM is fully loaded
+    // Function to format numbers with commas for thousands separators
     function formatNumberWithCommas(num) {
         if (isNaN(num)) return num; // Return as is if it's not a number
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     }
 
-    // Apply this formatting to all elements that display numbers (like shares, hashrates, etc.)
+    // Apply number formatting to all elements with class '.v' (for shares, hashrates, etc.)
     document.querySelectorAll('.v').forEach(function(element) {
         var number = element.textContent.trim();
         if (number) {
@@ -890,13 +890,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add Coin info to column 2 after Pool User
+    // Add the Coin display (e.g., BTC) in the Miner Card after Pool User
     document.querySelectorAll('.card').forEach(function(card) {
         var poolUserElement = card.querySelector('.row .rv');
         if (poolUserElement) {
             var coinElement = document.createElement('div');
             coinElement.classList.add('rv');
-            coinElement.textContent = 'Coin: ' + coinType; // coinType will be dynamically set
+            coinElement.textContent = 'Coin: ' + coinType; // coinType dynamically set from the config
             poolUserElement.insertAdjacentElement('afterend', coinElement);
         }
     });
