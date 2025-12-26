@@ -1,17 +1,9 @@
-import express from 'express';
-import cors from 'cors';
-import axios from 'axios';
-import dotenv from 'dotenv';
-
-// Load environment variables
-dotenv.config();
+import express from "express";
+import cors from "cors";
 
 const app = express();
-const PORT = process.env.PORT || 8080;
-
-// Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "1024kb" }));
 
 // Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
@@ -22,34 +14,6 @@ function auth(req, res, next) {
   if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
   next();
 }
-
-// Store for miners
-let minersStore = new Map();
-
-// Endpoint to ingest data
-app.post("/ingest", (req, res) => {
-  const miners = req.body.miners || [];
-  miners.forEach(miner => {
-    minersStore.set(miner.id, miner);
-  });
-  res.json({ ok: true, count: miners.length });
-});
-
-// Endpoint to fetch miner data
-app.get("/v1/miners", (req, res) => {
-  const miners = Array.from(minersStore.values()).map(m => ({
-    id: m.id,
-    name: m.name,
-    metrics: m.metrics
-  }));
-  res.json({ miners });
-});
-
-// Start the server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`MinerMonitor server running on port ${PORT}`);
-});
 
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
@@ -92,36 +56,23 @@ app.post("/v1/ingest", auth, (req, res) => {
   }
 });
 
-// Middleware for authenticating API requests
-function auth(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
-  next();
-}
-
-// In-memory storage for miner data
-let minersStore = new Map();
-
-// Route to fetch miner data
 app.get("/v1/miners", (req, res) => {
-  const miners = Array.from(minersStore.values()).map(m => ({
-    id: m.id,
-    name: m.name,
-    metrics: m.metrics
-  }));
+  const miners = Array.from(minersStore.values())
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+    .map((m) => ({
+      ...m,
+      history: (historyStore.get(m.id) || []).slice(-2500),
+    }));
+
   res.json({ miners });
 });
 
-// Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
 app.get("/", (req, res) => {
   // IMPORTANT: We keep ONE outer template string only.
   // Inside the <script>, we avoid backticks entirely (no nested template literals).
-  res.type("html").send(`
-  
-<!doctype html>
+  res.type("html").send(`<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -312,10 +263,9 @@ app.get("/", (req, res) => {
     white-space:nowrap;
   }
 
-  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
-  .dotOk{background:#238823} /* green */
-  .dotWarn{background:#FC8B03} /* orange */
-  .dotOff{background:#D2222D} /* red */
+  .dot{ width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px) }
+  .dotOk{background:var(--ok)}
+  .dotWarn{background:var(--warn)}
 
   .hero{
     display:grid;
@@ -662,7 +612,6 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
         if(poolUser){
         var addr = String(poolUser);
         var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        if(m.coin){ eL += row("Coin", esc(m.coin), true); }
         eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
       }
 extraHtml =
@@ -906,5 +855,5 @@ extraHtml =
 </html>`);
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
