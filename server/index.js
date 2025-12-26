@@ -872,3 +872,28 @@ document.querySelectorAll('.v').forEach(function(element) {
         element.textContent = formattedNumber;
     }
 });
+
+function formatNumberWithCommas(num) {
+    if (isNaN(num)) return num; // Return as is if it's not a number
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Apply this formatting to all elements that display numbers (like shares, hashrates, etc.)
+document.querySelectorAll('.v').forEach(function(element) {
+    var number = element.textContent.trim();
+    if (number) {
+        var formattedNumber = formatNumberWithCommas(number);
+        element.textContent = formattedNumber;
+    }
+});
+
+// Add Coin info to column 2 after Pool User
+document.querySelectorAll('.card').forEach(function(card) {
+    var poolUserElement = card.querySelector('.row .rv');
+    if (poolUserElement) {
+        var coinElement = document.createElement('div');
+        coinElement.classList.add('rv');
+        coinElement.textContent = 'Coin: ' + coinType; // coinType will be dynamically set
+        poolUserElement.insertAdjacentElement('afterend', coinElement);
+    }
+});
