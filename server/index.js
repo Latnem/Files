@@ -1,9 +1,17 @@
-import express from "express";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
+const PORT = process.env.PORT || 8080;
+
+// Middleware
 app.use(cors());
-app.use(express.json({ limit: "1024kb" }));
+app.use(express.json());
 
 // Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
@@ -14,6 +22,33 @@ function auth(req, res, next) {
   if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
   next();
 }
+
+// Store for miners
+let minersStore = new Map();
+
+// Endpoint to ingest data
+app.post("/ingest", (req, res) => {
+  const miners = req.body.miners || [];
+  miners.forEach(miner => {
+    minersStore.set(miner.id, miner);
+  });
+  res.json({ ok: true, count: miners.length });
+});
+
+// Endpoint to fetch miner data
+app.get("/v1/miners", (req, res) => {
+  const miners = Array.from(minersStore.values()).map(m => ({
+    id: m.id,
+    name: m.name,
+    metrics: m.metrics
+  }));
+  res.json({ miners });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`MinerMonitor Server is running on port ${PORT}`);
+});
 
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
