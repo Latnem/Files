@@ -10,9 +10,6 @@ app.use(express.json({ limit: '1024kb' }));
 
 const API_KEY = process.env.API_KEY || "";
 
-// In-memory storage for miner data
-let minersStore = new Map();
-
 // Middleware for authenticating API requests
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
@@ -23,13 +20,13 @@ function auth(req, res, next) {
   next();
 }
 
+// In-memory storage for miner data
+let minersStore = new Map();
+
 // Route to ingest data from the Agent
 app.post("/ingest", auth, (req, res) => {
   try {
     const miners = req.body.miners || [];
-    if (miners.length === 0) {
-      return res.status(400).json({ error: "No miners data provided" });
-    }
     miners.forEach(miner => {
       minersStore.set(miner.id, miner);  // Store miner data in memory
     });
@@ -58,11 +55,12 @@ app.get("/v1/miners", (req, res) => {
 // Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-// Start the server
+// Start the server on the port set by Render (default to port 80)
 const PORT = process.env.PORT || 80;  // Default to port 80 for Render
 app.listen(PORT, () => {
   console.log(`MinerMonitor server running on port ${PORT}`);
 });
+
 
 
 
