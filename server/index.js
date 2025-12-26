@@ -617,7 +617,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60,000; }
       }
 extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
-            '<div class="col">' + eL + '<div class="rv">Coin BTC</div>' +
+            '<div class="col">' + eL + '<div class="rv">Coin: BTC</div>' +
             '<div class="col">' + eR + '</div>' +
           '</div>';
       }
