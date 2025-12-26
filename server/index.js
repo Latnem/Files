@@ -18,7 +18,7 @@ function auth(req, res, next) {
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 6000;
+const HISTORY_MAX_POINTS = 6,000;
 
 function clampHistory(id) {
   const arr = historyStore.get(id) || [];
@@ -851,10 +851,24 @@ extraHtml =
   setRange(state.rangeMs);
 
   setInterval(refresh, 5,000);
-  refresh();</script>
+  refresh();
+    function formatNumberWithCommas(num) {
+        if (isNaN(num)) return num; // Return as is if it's not a number
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+
+    // Apply this formatting to all elements that display numbers
+    document.querySelectorAll('.v').forEach(function(element) {
+        var number = element.textContent.trim();
+        if (number) {
+            var formattedNumber = formatNumberWithCommas(number);
+            element.textContent = formattedNumber;
+        }
+    });
+    </script>
 </body>
 </html>`);
 });
 
-const PORT = process.env.PORT || 8,080;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
