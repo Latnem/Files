@@ -1,106 +1,51 @@
-import express from 'express';
-import cors from 'cors';
-
+const express = require('express');
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '1024kb' }));
+const PORT = process.env.PORT || 3000;
 
-// Render -> Environment -> API_KEY=<your secret>
-const API_KEY = process.env.API_KEY || "";
+app.use(express.json());
 
-// Middleware for authentication
-function auth(req, res, next) {
-    const header = req.headers.authorization || "";
-    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-    if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "Unauthorized" });
-    next();
-}
+// In-memory store for miner data (using Map to store unique miners by ID)
+let minersStore = new Map();
 
-// In-memory stores
-const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
-const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 6000;
+// Sample endpoint to fetch miner data
+app.get('/v1/miners', (req, res) => {
+    res.json({
+        miners: Array.from(minersStore.values())  // Return the miners from the in-memory store
+    });
+});
 
-// Function to clamp history size
-function clampHistory(id) {
-    const arr = historyStore.get(id) || [];
-    if (arr.length > HISTORY_MAX_POINTS) historyStore.set(id, arr.slice(-HISTORY_MAX_POINTS));
-}
+// Endpoint to ingest new miner data from the Agent
+app.post('/v1/ingest', (req, res) => {
+    const minerData = req.body.miners;
 
-// POST /v1/ingest - Endpoint to receive miner data
-app.post("/v1/ingest", auth, (req, res) => {
-    try {
-        const miners = (req.body && req.body.miners) ? req.body.miners : [];
-        const now = Date.now();
-
-        console.log('Received data:', req.body);  // Log incoming data
-
-        for (const m of miners) {
-            const id = String((m && m.id) || "").trim();
-            if (!id) continue;
-
-            const name = String((m && m.name) || id);
-            const tsRaw = (m && m.metrics) ? m.metrics.ts : undefined;
-            const ts = Number(tsRaw ?? now);
-            const safeTs = Number.isFinite(ts) ? ts : now;
-
-            const metrics = (m && m.metrics) ? m.metrics : {};
-            minersStore.set(id, { id, name, last_ts: safeTs, metrics });
-
-            const point = { ts: safeTs, ...metrics };
-            const arr = historyStore.get(id) || [];
-            arr.push(point);
-            historyStore.set(id, arr);
-            clampHistory(id);
+    // Process each miner data
+    minerData.forEach(miner => {
+        // Check if miner already exists in the store by ID, and update if necessary
+        if (minersStore.has(miner.id)) {
+            console.log(`Updating data for miner: ${miner.name}`);
+        } else {
+            console.log(`Adding new miner: ${miner.name}`);
         }
+        
+        // Add or update the miner data in the store based on miner ID
+        minersStore.set(miner.id, miner);
+    });
 
-        // Send success response
-        res.json({ ok: true, count: miners.length });
-    } catch (e) {
-        console.error("Ingest error:", e);
-        res.status(500).json({ error: "server_error" });
-    }
+    // Respond with success
+    res.status(200).json({ message: 'Miner data successfully ingested' });
 });
 
-// GET /v1/miners - Endpoint to retrieve miner data
-app.get("/v1/miners", (req, res) => {
-    // Log the request for miner data
-    console.log('Fetching miners data...');
-
-    const miners = Array.from(minersStore.values())
-        .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
-        .map((m) => ({
-            ...m,
-            history: (historyStore.get(m.id) || []).slice(-2500),
-        }));
-
-    res.json({ miners });
+// Optionally clear all miner data (useful for manual resets)
+app.delete('/v1/miners', (req, res) => {
+    minersStore.clear();   // Clears all stored miner data in memory
+    res.json({ message: 'Miner data cleared' });
 });
 
-// Health check route
-app.get("/healthz", (req, res) => res.type("text").send("ok"));
-
-// Root route to confirm server is running
-app.get("/", (req, res) => {
-    res.type("html").send(`<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MinerMonitor</title>
-</head>
-<body>
-  <h1>MinerMonitor Server is Running!</h1>
-  <p>Use the /v1/miners endpoint to view miner data.</p>
-</body>
-</html>`);
+// Start the server and listen on the specified port
+app.listen(PORT, () => {
+    console.log(`MinerMonitor running on port ${PORT}`);
 });
 
-// Start server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
-
-    
     <!doctype html>
 <html>
 <head>
