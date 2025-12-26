@@ -18,7 +18,7 @@ function auth(req, res, next) {
 // In-memory stores
 const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 6000;
+const HISTORY_MAX_POINTS = 6,000;
 
 function clampHistory(id) {
   const arr = historyStore.get(id) || [];
@@ -61,7 +61,7 @@ app.get("/v1/miners", (req, res) => {
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
     .map((m) => ({
       ...m,
-      history: (historyStore.get(m.id) || []).slice(-2500),
+      history: (historyStore.get(m.id) || []).slice(-2,500),
     }));
 
   res.json({ miners });
@@ -81,7 +81,7 @@ app.get("/", (req, res) => {
 
 <style>
   /* Palette only (derived rgba ok):
-     Teal:       #438981
+     Teal:       #438,981
      Dark green: #2C5444
      Navy:       #1D2B38
      Slate:      #3B576D
@@ -89,7 +89,7 @@ app.get("/", (req, res) => {
   */
 
   :root{
-    --c1:#438981;
+    --c1:#438,981;
     --c2:#2C5444;
     --c3:#1D2B38;
     --c4:#3B576D;
@@ -165,7 +165,7 @@ app.get("/", (req, res) => {
     gap:10px; padding:14px 8px;
   }
 
-  .brand{ font-size:22px; font-weight:1000; letter-spacing:.2px; }
+  .brand{ font-size:22px; font-weight:1,000; letter-spacing:.2px; }
   .brand .mark{ color: var(--accent); }
 
   .headRight{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
@@ -201,7 +201,7 @@ app.get("/", (req, res) => {
     box-shadow:var(--shadow);
   }
   .stat .k{color:var(--mut); font-weight:950; font-size:12px; letter-spacing:.2px}
-  .stat .v{font-size:20px; font-weight:1000; margin-top:6px}
+  .stat .v{font-size:20px; font-weight:1,000; margin-top:6px}
   .stat .s{color:var(--mut); margin-top:4px; font-weight:850; font-size:12px}
 
   .panelBox{
@@ -215,7 +215,7 @@ app.get("/", (req, res) => {
   .panelTitle h2{
     margin:0;
     font-size:12px;
-    font-weight:1000;
+    font-weight:1,000;
     color:var(--mut);
     letter-spacing:.22px;
     text-transform:uppercase;
@@ -250,7 +250,7 @@ app.get("/", (req, res) => {
     margin-bottom:10px;
   }
 
-  .minerName{ font-weight:1000; font-size:15px; }
+  .minerName{ font-weight:1,000; font-size:15px; }
   .minerSub{ margin-top:3px; font-size:12px; color:var(--mut); font-weight:850; }
 
   .badge{
@@ -263,8 +263,8 @@ app.get("/", (req, res) => {
     white-space:nowrap;
   }
 
-  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
-  .dotOk{background:#238823} /* green */
+  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.6)}
+  .dotOk{background:#238,823} /* green */
   .dotWarn{background:#FC8B03} /* orange */
   .dotOff{background:#D2222D} /* red */
 
@@ -278,8 +278,8 @@ app.get("/", (req, res) => {
     border:1px solid var(--line);
     margin-bottom:10px;
   }
-  .hero .hk{ color:var(--mut); font-weight:1000; font-size:12px }
-  .hero .hv{ font-weight:1000; font-size:22px; margin-top:4px }
+  .hero .hk{ color:var(--mut); font-weight:1,000; font-size:12px }
+  .hero .hv{ font-weight:1,000; font-size:22px; margin-top:4px }
   .hashNum{ color:var(--accent2) }
   .tempNum{ color:var(--accent) }
 
@@ -294,7 +294,7 @@ app.get("/", (req, res) => {
   [data-theme="dark"] .row{ border-bottom-color: rgba(138,162,162,.18); }
   .row:last-child{ border-bottom:0; }
   .rk{ color:var(--mut); font-weight:900; }
-  .rv{ font-weight:1000; text-align:right; }
+  .rv{ font-weight:1,000; text-align:right; }
   .rv.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 
   .empty{
@@ -322,7 +322,7 @@ app.get("/", (req, res) => {
     background:transparent;
     color:var(--ink);
     cursor:pointer;
-    font-weight:1000;
+    font-weight:1,000;
     padding:0 12px;
     display:flex;
     align-items:center;
@@ -340,7 +340,7 @@ app.get("/", (req, res) => {
   .addrLink{
     color:#1e6fe6;
     text-decoration:none;
-    font-weight:1000;
+    font-weight:1,000;
   }
   .addrLink:hover{ text-decoration:underline; }
 
@@ -353,7 +353,7 @@ app.get("/", (req, res) => {
 
   /* Status dot colors (updated user palette) */
   .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; }
-  .dot.ok{ background:#238823; box-shadow:0 0 0 3px rgba(35,136,35,.25); }   /* green */
+  .dot.ok{ background:#238,823; box-shadow:0 0 0 3px rgba(35,136,35,.25); }   /* green */
   .dot.stale{ background:#FC8B03; box-shadow:0 0 0 3px rgba(252,139,3,.25); } /* orange */
   .dot.off{ background:#D2222D; box-shadow:0 0 0 3px rgba(210,34,45,.25); }   /* red */   /* red */   /* bright red */     /* bright red */     /* red */
 
@@ -413,7 +413,7 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
-  var state = { miners: [], rangeMs: 6*60*60*1000 };
+  var state = { miners: [], rangeMs: 6*60*60*1,000 };
 
   function $(id){ return document.getElementById(id); }
 
@@ -444,7 +444,7 @@ app.get("/", (req, res) => {
     return s;
   }
 
-function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
+function online(lastTs){ return (Date.now() - (lastTs||0)) < 60,000; }
 
   function fmt(v, d){
     if (d === undefined) d = 2;
@@ -462,14 +462,14 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
   function fmtUptime(sec){
     var n = Number(sec);
     if(!Number.isFinite(n) || n <= 0) return "—";
-    var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
+    var d=Math.floor(n/86,400), h=Math.floor((n%86,400)/3,600), m=Math.floor((n%3,600)/60);
     return d+"d "+h+"h "+m+"m";
   }
 
   function timeAgo(ts){
     if(!ts) return "—";
     var diff = Math.max(0, Date.now()-ts);
-    var s = Math.floor(diff/1000);
+    var s = Math.floor(diff/1,000);
     if(s<60) return s+"s";
     var m=Math.floor(s/60); if(m<60) return m+"m";
     var h=Math.floor(m/60); if(h<24) return h+"h";
@@ -617,7 +617,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       }
 extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
-            '<div class="col">' + eL + '</div>' +
+            '<div class="col">' + eL + '<div class="rv">Coin BTC</div>' +
             '<div class="col">' + eR + '</div>' +
           '</div>';
       }
@@ -721,7 +721,7 @@ extraHtml =
     var hashYs = hash.map(function(p){ return p.y; });
     var minH = Math.min.apply(null, hashYs);
     var maxH = Math.max.apply(null, hashYs);
-    var hPad = (maxH-minH)*0.18 || 0.06;
+    var hPad = (maxH-minH)*0.18 || 0.6;
     minH -= hPad; maxH += hPad;
 
     var tempYs = temp.length ? temp.map(function(p){ return p.y; }) : [0,1];
@@ -801,9 +801,9 @@ extraHtml =
     try { localStorage.setItem("mm_range", String(ms)); } catch(e){}
     var b6 = $("rng6"), b12 = $("rng12"), b24 = $("rng24");
     if(b6 && b12 && b24){
-      b6.classList.toggle("sel", ms === 6*60*60*1000);
-      b12.classList.toggle("sel", ms === 12*60*60*1000);
-      b24.classList.toggle("sel", ms === 24*60*60*1000);
+      b6.classList.toggle("sel", ms === 6*60*60*1,000);
+      b12.classList.toggle("sel", ms === 12*60*60*1,000);
+      b24.classList.toggle("sel", ms === 24*60*60*1,000);
     }
     drawChart();
   }
@@ -824,9 +824,9 @@ extraHtml =
   }
 
   // Range segmented
-  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
-  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
-  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
+  if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1,000); });
+  if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1,000); });
+  if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1,000); });
 
   // Theme segmented (icon-only)
   if($("segLight")) $("segLight").innerHTML = iconSun();
@@ -843,18 +843,18 @@ extraHtml =
   // Init range
   var savedRange = null;
   try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
-  if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
+  if(savedRange === 6*60*60*1,000 || savedRange === 12*60*60*1,000 || savedRange === 24*60*60*1,000){
     state.rangeMs = savedRange;
   } else {
-    state.rangeMs = 6*60*60*1000;
+    state.rangeMs = 6*60*60*1,000;
   }
   setRange(state.rangeMs);
 
-  setInterval(refresh, 5000);
+  setInterval(refresh, 5,000);
   refresh();</script>
 </body>
 </html>`);
 });
 
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 8,080;
 app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
