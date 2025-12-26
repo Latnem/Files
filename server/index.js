@@ -851,24 +851,24 @@ extraHtml =
   setRange(state.rangeMs);
 
   setInterval(refresh, 5,000);
-  refresh();
-    function formatNumberWithCommas(num) {
-        if (isNaN(num)) return num; // Return as is if it's not a number
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    }
-
-    // Apply this formatting to all elements that display numbers
-    document.querySelectorAll('.v').forEach(function(element) {
-        var number = element.textContent.trim();
-        if (number) {
-            var formattedNumber = formatNumberWithCommas(number);
-            element.textContent = formattedNumber;
-        }
-    });
-    </script>
+  refresh();</script>
 </body>
 </html>`);
 });
 
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
+
+function formatNumberWithCommas(num) {
+    if (isNaN(num)) return num; // Return as is if it's not a number
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Apply this formatting to all elements that display numbers
+document.querySelectorAll('.v').forEach(function(element) {
+    var number = element.textContent.trim();
+    if (number) {
+        var formattedNumber = formatNumberWithCommas(number);
+        element.textContent = formattedNumber;
+    }
+});
