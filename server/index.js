@@ -10,49 +10,60 @@ app.use(express.json({ limit: '1024kb' }));
 
 const API_KEY = process.env.API_KEY || "";
 
+// In-memory storage for miner data
+let minersStore = new Map();
+
 // Middleware for authenticating API requests
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
+  if (!API_KEY || token !== API_KEY) {
+    return res.status(401).json({ error: "Unauthorized - Invalid API Key" });
+  }
   next();
 }
-
-// In-memory storage for miner data
-let minersStore = new Map();
 
 // Route to ingest data from the Agent
 app.post("/ingest", auth, (req, res) => {
   try {
     const miners = req.body.miners || [];
+    if (miners.length === 0) {
+      return res.status(400).json({ error: "No miners data provided" });
+    }
     miners.forEach(miner => {
-      minersStore.set(miner.id, miner);  // Store miner data
+      minersStore.set(miner.id, miner);  // Store miner data in memory
     });
     res.json({ ok: true, count: miners.length });
   } catch (e) {
     console.error('Error ingesting data:', e);
-    res.status(500).json({ error: "server_error" });
+    res.status(500).json({ error: "Server Error - Ingest" });
   }
 });
 
 // Route to fetch miner data
 app.get("/v1/miners", (req, res) => {
-  const miners = Array.from(minersStore.values()).map(m => ({
-    id: m.id,
-    name: m.name,
-    metrics: m.metrics
-  }));
-  res.json({ miners });
+  try {
+    const miners = Array.from(minersStore.values()).map(m => ({
+      id: m.id,
+      name: m.name,
+      metrics: m.metrics
+    }));
+    res.json({ miners });
+  } catch (e) {
+    console.error('Error fetching miners:', e);
+    res.status(500).json({ error: "Server Error - Fetching Miners" });
+  }
 });
 
 // Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-// Start the server on the port set by Render (default to port 80)
+// Start the server
 const PORT = process.env.PORT || 80;  // Default to port 80 for Render
 app.listen(PORT, () => {
   console.log(`MinerMonitor server running on port ${PORT}`);
 });
+
 
 
   <!doctype html>
