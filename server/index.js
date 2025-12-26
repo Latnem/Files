@@ -23,11 +23,16 @@ let minersStore = new Map();
 
 // Route to ingest data from the Agent
 app.post("/ingest", auth, (req, res) => {
-  const miners = req.body.miners || [];
-  miners.forEach(miner => {
-    minersStore.set(miner.id, miner);
-  });
-  res.json({ ok: true, count: miners.length });
+  try {
+    const miners = req.body.miners || [];
+    miners.forEach(miner => {
+      minersStore.set(miner.id, miner);
+    });
+    res.json({ ok: true, count: miners.length });
+  } catch (e) {
+    console.error('Error ingesting data:', e);
+    res.status(500).json({ error: "server_error" });
+  }
 });
 
 // Route to fetch miner data
@@ -48,6 +53,7 @@ const PORT = process.env.PORT || 80;  // Default to port 80
 app.listen(PORT, () => {
   console.log(`MinerMonitor server running on port ${PORT}`);
 });
+
 
   <!doctype html>
 <html>
