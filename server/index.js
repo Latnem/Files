@@ -26,7 +26,7 @@ app.post("/ingest", auth, (req, res) => {
   try {
     const miners = req.body.miners || [];
     miners.forEach(miner => {
-      minersStore.set(miner.id, miner);
+      minersStore.set(miner.id, miner);  // Store miner data
     });
     res.json({ ok: true, count: miners.length });
   } catch (e) {
@@ -48,7 +48,7 @@ app.get("/v1/miners", (req, res) => {
 // Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-// Start the server on the port set by Render
+// Start the server on the port set by Render (default to port 80)
 const PORT = process.env.PORT || 80;  // Default to port 80 for Render
 app.listen(PORT, () => {
   console.log(`MinerMonitor server running on port ${PORT}`);
