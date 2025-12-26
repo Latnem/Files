@@ -43,8 +43,8 @@ app.get("/v1/miners", (req, res) => {
 // Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-// Start the server
-const PORT = process.env.PORT || 8080;
+// Start the server on port 80 (default HTTP port)
+const PORT = process.env.PORT || 80;  // Default to port 80
 app.listen(PORT, () => {
   console.log(`MinerMonitor server running on port ${PORT}`);
 });
