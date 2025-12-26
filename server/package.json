@@ -1,17 +1,27 @@
 {
   "name": "minermonitor-server",
   "version": "1.0.0",
-  "type": "module",
-  "private": true,
-  "engines": {
-    "node": ">=18"
-  },
+  "description": "Server for Miner Monitor API and UI",
   "main": "index.js",
+  "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "express": "^4.21.1",
-    "cors": "^2.8.5"
-  }
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "axios": "^1.13.2",
+    "body-parser": "^2.2.1",
+    "yaml": "^2.8.2"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2",
+    "nodemon": "^2.0.19"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "ISC"
 }
