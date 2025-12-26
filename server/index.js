@@ -1,9 +1,13 @@
-import express from "express";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Load environment variables from .env file
+dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "1024kb" }));
+app.use(express.json({ limit: '1024kb' }));
 
 // Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
@@ -15,16 +19,18 @@ function auth(req, res, next) {
   next();
 }
 
-// In-memory stores
-const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
+// In-memory data stores for miners and history
+const minersStore = new Map();   // id -> {id, name, last_ts, metrics}
 const historyStore = new Map();  // id -> [{ts, ...metrics}]
 const HISTORY_MAX_POINTS = 6000;
 
+// Function to clamp history (keep a maximum number of points)
 function clampHistory(id) {
   const arr = historyStore.get(id) || [];
   if (arr.length > HISTORY_MAX_POINTS) historyStore.set(id, arr.slice(-HISTORY_MAX_POINTS));
 }
 
+// API Endpoint to ingest miner data (requires authentication)
 app.post("/v1/ingest", auth, (req, res) => {
   try {
     const miners = (req.body && req.body.miners) ? req.body.miners : [];
@@ -56,23 +62,27 @@ app.post("/v1/ingest", auth, (req, res) => {
   }
 });
 
+// API Endpoint to get miner data
 app.get("/v1/miners", (req, res) => {
   const miners = Array.from(minersStore.values())
     .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
     .map((m) => ({
       ...m,
-      history: (historyStore.get(m.id) || []).slice(-2,500),
+      history: (historyStore.get(m.id) || []).slice(-2500),
     }));
 
   res.json({ miners });
 });
 
+// Health check endpoint (required by Render)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
 app.get("/", (req, res) => {
   // IMPORTANT: We keep ONE outer template string only.
   // Inside the <script>, we avoid backticks entirely (no nested template literals).
-  res.type("html").send(`<!doctype html>
+  res.type("html").send(`
+  
+<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -856,8 +866,11 @@ extraHtml =
 </html>`);
 });
 
+// Listen for requests on the dynamically assigned port (Render uses process.env.PORT)
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
+app.listen(PORT, () => {
+  console.log(`MinerMonitor server running on port ${PORT}`);
+});
 
 function formatNumberWithCommas(num) {
     if (isNaN(num)) return num; // Return as is if it's not a number
