@@ -9,8 +9,9 @@ let minersStore = new Map();
 
 // Sample endpoint to fetch miner data
 app.get('/v1/miners', (req, res) => {
+    // Return all stored miner data as an array
     res.json({
-        miners: Array.from(minersStore.values())  // Return the miners from the in-memory store
+        miners: Array.from(minersStore.values())  // Convert Map to Array for response
     });
 });
 
@@ -20,15 +21,16 @@ app.post('/v1/ingest', (req, res) => {
 
     // Process each miner data
     minerData.forEach(miner => {
-        // Check if miner already exists in the store by ID, and update if necessary
+        // If the miner already exists in the store (based on ID), update the miner
         if (minersStore.has(miner.id)) {
             console.log(`Updating data for miner: ${miner.name}`);
+            // If the miner ID exists, update the existing miner with the new data (name, metrics, etc.)
+            minersStore.set(miner.id, miner);  // Update the existing miner data
         } else {
             console.log(`Adding new miner: ${miner.name}`);
+            // If the miner ID doesn't exist, add it as a new entry
+            minersStore.set(miner.id, miner);  // Add new miner to the store
         }
-        
-        // Add or update the miner data in the store based on miner ID
-        minersStore.set(miner.id, miner);
     });
 
     // Respond with success
@@ -45,6 +47,7 @@ app.delete('/v1/miners', (req, res) => {
 app.listen(PORT, () => {
     console.log(`MinerMonitor running on port ${PORT}`);
 });
+
 
     <!doctype html>
 <html>
