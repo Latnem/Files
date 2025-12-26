@@ -873,9 +873,11 @@ document.querySelectorAll('.v').forEach(function(element) {
     }
 });
 
-function formatNumberWithCommas(num) {
-    if (isNaN(num)) return num; // Return as is if it's not a number
-    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+if (typeof formatNumberWithCommas !== 'function') {
+    function formatNumberWithCommas(num) {
+        if (isNaN(num)) return num; // Return as is if it's not a number
+        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
 }
 
 // Apply this formatting to all elements that display numbers (like shares, hashrates, etc.)
