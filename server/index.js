@@ -1,13 +1,16 @@
-import express from "express";
-import cors from "cors";
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "1024kb" }));
+app.use(express.json({ limit: '1024kb' }));
 
-// Render -> Environment -> API_KEY=<your secret>
 const API_KEY = process.env.API_KEY || "";
 
+// Middleware for authenticating API requests
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -15,64 +18,38 @@ function auth(req, res, next) {
   next();
 }
 
-// In-memory stores
-const minersStore = new Map();   // id -> {id,name,last_ts,metrics}
-const historyStore = new Map();  // id -> [{ts, ...metrics}]
-const HISTORY_MAX_POINTS = 6000;
+// In-memory storage for miner data
+let minersStore = new Map();
 
-function clampHistory(id) {
-  const arr = historyStore.get(id) || [];
-  if (arr.length > HISTORY_MAX_POINTS) historyStore.set(id, arr.slice(-HISTORY_MAX_POINTS));
-}
-
-app.post("/v1/ingest", auth, (req, res) => {
-  try {
-    const miners = (req.body && req.body.miners) ? req.body.miners : [];
-    const now = Date.now();
-
-    for (const m of miners) {
-      const id = String((m && m.id) || "").trim();
-      if (!id) continue;
-
-      const name = String((m && m.name) || id);
-      const tsRaw = (m && m.metrics) ? m.metrics.ts : undefined;
-      const ts = Number(tsRaw ?? now);
-      const safeTs = Number.isFinite(ts) ? ts : now;
-
-      const metrics = (m && m.metrics) ? m.metrics : {};
-      minersStore.set(id, { id, name, last_ts: safeTs, metrics });
-
-      const point = { ts: safeTs, ...metrics };
-      const arr = historyStore.get(id) || [];
-      arr.push(point);
-      historyStore.set(id, arr);
-      clampHistory(id);
-    }
-
-    res.json({ ok: true, count: miners.length });
-  } catch (e) {
-    console.error("ingest error:", e);
-    res.status(500).json({ error: "server_error" });
-  }
+// Route to ingest data from the Agent
+app.post("/ingest", auth, (req, res) => {
+  const miners = req.body.miners || [];
+  miners.forEach(miner => {
+    minersStore.set(miner.id, miner);
+  });
+  res.json({ ok: true, count: miners.length });
 });
 
+// Route to fetch miner data
 app.get("/v1/miners", (req, res) => {
-  const miners = Array.from(minersStore.values())
-    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
-    .map((m) => ({
-      ...m,
-      history: (historyStore.get(m.id) || []).slice(-2500),
-    }));
-
+  const miners = Array.from(minersStore.values()).map(m => ({
+    id: m.id,
+    name: m.name,
+    metrics: m.metrics
+  }));
   res.json({ miners });
 });
 
+// Health check endpoint (for Render or similar platforms)
 app.get("/healthz", (req, res) => res.type("text").send("ok"));
 
-app.get("/", (req, res) => {
-  // IMPORTANT: We keep ONE outer template string only.
-  // Inside the <script>, we avoid backticks entirely (no nested template literals).
-  res.type("html").send(`<!doctype html>
+// Start the server
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`MinerMonitor server running on port ${PORT}`);
+});
+
+  <!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
