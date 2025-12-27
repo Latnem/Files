@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
     --c5:#8AA2A2;
 
     /* Light theme default */
-    --bg: rgba(55, 79, 109, .92);
+    --bg: rgba(138,162,162,.18);
     --panel: rgba(255,255,255,.72);
     --panel2: rgba(67,137,129,.14);
     --ink: var(--c3);
@@ -133,7 +133,7 @@ app.get("/", (req, res) => {
   }
 
   [data-theme="dark"]{
-    --bg: rgba(55,82,108,.92);
+    --bg: rgba(55, 79, 109, .92);
     --panel: rgba(44,84,68,.35);
     --panel2: rgba(59,87,109,.45);
     --ink: rgba(231,240,240,.95);
