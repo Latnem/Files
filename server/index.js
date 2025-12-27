@@ -814,8 +814,16 @@ app.get("/", (req, res) => {
     ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
-    var leftTime = new Date(minX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
-    var rightTime = new Date(maxX).toLocaleTimeString([], {hour:"2-digit", minute:"2-digit"});
+    var leftTime = new Date(minX).toLocaleTimeString([], {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true
+});
+    var rightTime = new Date(maxX).toLocaleTimeString([], {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true
+});
     ctx.fillText(leftTime, padL, padT+h+20);
     ctx.fillText(rightTime, padL+w-54, padT+h+20);
   }
