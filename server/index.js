@@ -9,11 +9,22 @@ const API_KEY = process.env.API_KEY || "";
 
 // Middleware for authenticating API requests
 function auth(req, res, next) {
-  const header = req.headers.authorization || "";
-  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
+  // Accept API key via:
+  // 1) Authorization: Bearer <key>
+  // 2) x-api-key: <key>
+  // 3) ?apiKey=<key> query param (optional convenience)
+  if (!API_KEY) return next();
+
+  const header = String(req.headers.authorization || "");
+  const bearer = header.startsWith("Bearer ") ? header.slice(7) : "";
+  const xkey = String(req.headers["x-api-key"] || req.headers["x_api_key"] || "");
+  const qkey = String((req.query && (req.query.apiKey || req.query.apikey)) || "");
+
+  const token = bearer || xkey || qkey;
+  if (token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
   next();
 }
+
 
 // In-memory storage for miner data
 let minersStore = new Map();
@@ -32,38 +43,77 @@ function clampHistory(key) {
 // IMPORTANT: Dedupe by ipv4 so renaming doesn't create duplicates.
 app.post("/v1/ingest", auth, (req, res) => {
   try {
-    const miners = (req.body && Array.isArray(req.body.miners)) ? req.body.miners : [];
     const now = Date.now();
+    const body = req.body;
+
+    // Accept multiple payload shapes from the Agent:
+    // 1) { miners: [ { id, name, metrics } ... ] }
+    // 2) { miner: { id, name, metrics } }
+    // 3) [ { id, name, metrics } ... ]
+    // 4) { id, name, ...metricsFlat }
+    let miners = [];
+    if (body && Array.isArray(body.miners)) miners = body.miners;
+    else if (body && body.miner && typeof body.miner === "object") miners = [body.miner];
+    else if (Array.isArray(body)) miners = body;
+    else if (body && typeof body === "object") miners = [body];
 
     for (const m of miners) {
-      const metrics = (m && m.metrics) ? m.metrics : {};
-      const ip = String(metrics.ipv4 || "").trim();
+      if (!m || typeof m !== "object") continue;
 
-      // Stable identity: prefer IP so renaming doesn't create duplicates.
-      const key = ip ? `ip:${ip}` : String((m && m.id) || "").trim();
+      // Support both nested metrics and flat payloads
+      const metrics = (m.metrics && typeof m.metrics === "object") ? m.metrics : m;
+
+      // Stable identity: prefer IPv4 so renaming doesn't create duplicates
+      const ip = String(metrics.ipv4 || metrics.ip || m.ipv4 || m.ip || "").trim();
+      const key = ip || String(m.id || metrics.id || m.name || metrics.hostname || "").trim();
       if (!key) continue;
 
-      const id = String((m && m.id) || (ip ? ip : key)).trim();
-      const name = String((m && m.name) || metrics.hostname || id);
+      const id = String(m.id || metrics.id || key).trim();
+      const name = String(m.name || metrics.name || metrics.hostname || id).trim();
 
-      const tsRaw = metrics.ts;
-      const ts = Number(tsRaw ?? now);
-      const safeTs = Number.isFinite(ts) ? ts : now;
+      const existing = minersStore.get(key) || { id, name, first_ts: now, last_ts: now, metrics: {} };
+      const merged = {
+        ...existing,
+        id,
+        name,
+        key,
+        last_ts: now,
+        metrics: {
+          ...existing.metrics,
+          ...metrics,
+          ipv4: ip || existing.metrics.ipv4,
+          hostname: metrics.hostname || existing.metrics.hostname || name,
+        },
+      };
 
-      // Store miner snapshot
-      minersStore.set(key, { key, id, name, last_ts: safeTs, metrics });
+      minersStore.set(key, merged);
 
-      // History
-      const point = { ts: safeTs, ...metrics };
-      const arr = historyStore.get(key) || [];
-      arr.push(point);
-      historyStore.set(key, arr);
+      // History for charting
+      const hist = historyStore.get(key) || [];
+      const toTh = (v) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? (n / 1000) : null; // Agent sends GH/s in the sample API; convert to TH/s
+      };
+
+      hist.push({
+        ts: now,
+        hashrateTh: metrics.hashRate != null ? toTh(metrics.hashRate) : (metrics.hashrateTh ?? null),
+        hashrate1mTh: metrics.hashRate_1m != null ? toTh(metrics.hashRate_1m) : (metrics.hashrate1mTh ?? null),
+        hashrate10mTh: metrics.hashRate_10m != null ? toTh(metrics.hashRate_10m) : (metrics.hashrate10mTh ?? null),
+        hashrate1hTh: metrics.hashRate_1h != null ? toTh(metrics.hashRate_1h) : (metrics.hashrate1hTh ?? null),
+        asicTempC: metrics.temp != null ? Number(metrics.temp) : (metrics.asicTempC ?? null),
+        cpuTempC: metrics.temp2 != null ? Number(metrics.temp2) : (metrics.cpuTempC ?? null),
+        powerW: metrics.power != null ? Number(metrics.power) : (metrics.powerW ?? null),
+      });
+
+      historyStore.set(key, hist);
       clampHistory(key);
     }
 
-    res.json({ ok: true, count: miners.length, stored: minersStore.size });
+    return res.json({ ok: true, ingested: miners.length, miners: minersStore.size });
   } catch (e) {
-    res.status(500).json({ error: "ingest_failed" });
+    console.error("Ingest error:", e);
+    return res.status(500).json({ error: "ingest_failed" });
   }
 });
 
@@ -425,18 +475,18 @@ app.get("/", (req, res) => {
     <div class="topStats">
       <div class="stat">
         <div class="k">Total Hash</div>
-        <div class="v" id="sumHash">—</div>
-        <div class="s" id="sumHashSub">—</div>
+        <div class="v" id="sumHash">â€”</div>
+        <div class="s" id="sumHashSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Shares</div>
-        <div class="v" id="sumShares">—</div>
-        <div class="s" id="sumSharesSub">—</div>
+        <div class="v" id="sumShares">â€”</div>
+        <div class="s" id="sumSharesSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Avg Temp</div>
-        <div class="v" id="avgTemp">—</div>
-        <div class="s" id="avgTempSub">—</div>
+        <div class="v" id="avgTemp">â€”</div>
+        <div class="s" id="avgTempSub">â€”</div>
       </div>
     </div>
 
@@ -488,7 +538,7 @@ function $(id){ return document.getElementById(id); }
     }
 
   function addrLink(addr){
-    if(!addr) return "—";
+    if(!addr) return "â€”";
     var a = String(addr);
     var href = "https://mempool.space/address/" + encodeURIComponent(a);
     // Use shortened display text, but link to full address
@@ -502,14 +552,14 @@ function $(id){ return document.getElementById(id); }
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return n.toFixed(d);
   }
 
   // COMMA FORMATTING
   function fmtInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return Math.round(n).toLocaleString("en-US");
   }
 
@@ -517,14 +567,14 @@ function $(id){ return document.getElementById(id); }
   // NO COMMA FORMATTING (ports, ids)
   function fmtPlainInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return String(Math.round(n));
   }
 
   // ABBREVIATED NUMBER (K / M / B) for Best Diff display
   function fmtAbbr(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     var abs = Math.abs(n);
     if(abs >= 1e9) return (n/1e9).toFixed(2) + " B";
     if(abs >= 1e6) return (n/1e6).toFixed(2) + " M";
@@ -534,13 +584,13 @@ function $(id){ return document.getElementById(id); }
 
   function fmtUptime(sec){
     var n = Number(sec);
-    if(!Number.isFinite(n) || n <= 0) return "—";
+    if(!Number.isFinite(n) || n <= 0) return "â€”";
     var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return d+"d "+h+"h "+m+"m";
   }
 
   function timeAgo(ts){
-    if(!ts) return "—";
+    if(!ts) return "â€”";
     var diff = Math.max(0, Date.now()-ts);
     var s = Math.floor(diff/1000);
     if(s<60) return s+"s";
@@ -569,12 +619,12 @@ function $(id){ return document.getElementById(id); }
   function renderTopSummary(){
     var miners = state.miners || [];
     if(!miners.length){
-      $("sumHash").textContent = "—";
-      $("sumHashSub").textContent = "—";
-      $("sumShares").textContent = "—";
-      $("sumSharesSub").textContent = "—";
-      $("avgTemp").textContent = "—";
-      $("avgTempSub").textContent = "—";
+      $("sumHash").textContent = "â€”";
+      $("sumHashSub").textContent = "â€”";
+      $("sumShares").textContent = "â€”";
+      $("sumSharesSub").textContent = "â€”";
+      $("avgTemp").textContent = "â€”";
+      $("avgTempSub").textContent = "â€”";
       return;
     }
 
@@ -601,14 +651,14 @@ function $(id){ return document.getElementById(id); }
       if(t != null){ tempSum += t; tempCount++; }
     }
 
-    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
+    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
     $("sumHashSub").textContent = onlineCount + " online | " + miners.length + " total";
 
     $("sumShares").textContent = (acc + rej).toLocaleString("en-US");
     $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " | Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + " " + DEG + "C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + " " + DEG + "C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -616,7 +666,7 @@ function $(id){ return document.getElementById(id); }
     var el = $("grid");
     var miners = state.miners || [];
     if(!miners.length){
-      el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
+      el.innerHTML = '<div class="empty">Waiting for agent dataâ€¦</div>';
       return;
     }
 
@@ -657,17 +707,17 @@ function $(id){ return document.getElementById(id); }
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
       var left = "";
-      left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
-      left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
-      left += row("Power",      (power==null ? "—" : (fmt(power,1) + " W")), false);
-      left += row("Fan RPM",    (fanRpm==null ? "—" : fmtInt(fanRpm)), false);
+      left += row("Hash (10m)", (hr10m==null ? "â€”" : (fmt(hr10m,2) + " TH/s")), false);
+      left += row("Hash (1h)",  (hr1h==null ? "â€”" : (fmt(hr1h,2) + " TH/s")), false);
+      left += row("Power",      (power==null ? "â€”" : (fmt(power,1) + " W")), false);
+      left += row("Fan RPM",    (fanRpm==null ? "â€”" : fmtInt(fanRpm)), false);
       left += row("Uptime",     fmtUptime(uptime), false);
 
       var right = "";
-      right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
-      right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
-      right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
-      right += row("Best Diff", (bestDiff==null ? "—" : fmtAbbr(bestDiff)), false);
+      right += row("Accepted", (accepted==null ? "â€”" : fmtInt(accepted)), false);
+      right += row("Rejected", (rejected==null ? "â€”" : fmtInt(rejected)), false);
+      right += row("Efficiency", (eff==null ? "â€”" : (fmt(eff,2) + " J/TH")), false);
+      right += row("Best Diff", (bestDiff==null ? "â€”" : fmtAbbr(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
       // Pool/Port/User/Coin now shown inside hero
@@ -687,19 +737,19 @@ function $(id){ return document.getElementById(id); }
           '<div class="hero">' +
             '<div>' +
               '<div class="hk">Current Hashrate</div>' +
-              '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
+              '<div class="hv hashNum">' + (heroHash==null ? "â€”" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
               '<div class="hk">ASIC Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "—" : fmt(heroTemp,1)) + ' &#176;C</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' &#176;C</div>' +
             '</div>' +
             ((poolUrl || poolPort != null || poolUser || coin) ? (
               '<div class="poolBlock">' +
                 '<div class="poolGrid">' +
-                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || '—') + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? '—' : fmtPlainInt(poolPort)) + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || 'â€”') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? 'â€”' : fmtPlainInt(poolPort)) + '</span></div>' +
                   '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">\' + addrLink(poolUser) + \'</span></div>' +
-                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || '—') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || 'â€”') + '</span></div>' +
                 '</div>' +
               '</div>'
             ) : '') +
@@ -771,7 +821,7 @@ function $(id){ return document.getElementById(id); }
     if(hash.length < 2){
       ctx.fillStyle = mut;
       ctx.font = "12px ui-sans-serif,system-ui";
-      ctx.fillText("Waiting for chart data…", padL+10, padT+24);
+      ctx.fillText("Waiting for chart dataâ€¦", padL+10, padT+24);
       return;
     }
 
@@ -925,4 +975,3 @@ function $(id){ return document.getElementById(id); }
 // Start server (Render uses process.env.PORT)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
-
