@@ -477,6 +477,25 @@ app.get("/", (req, res) => {
     return Math.round(n).toLocaleString("en-US");
   }
 
+
+  // NO COMMA FORMATTING (ports, ids)
+  function fmtPlainInt(v){
+    var n = Number(v);
+    if(!Number.isFinite(n)) return "—";
+    return String(Math.round(n));
+  }
+
+  // ABBREVIATED NUMBER (K / M / B) for Best Diff display
+  function fmtAbbr(v){
+    var n = Number(v);
+    if(!Number.isFinite(n)) return "—";
+    var abs = Math.abs(n);
+    if(abs >= 1e9) return (n/1e9).toFixed(2) + " B";
+    if(abs >= 1e6) return (n/1e6).toFixed(2) + " M";
+    if(abs >= 1e3) return (n/1e3).toFixed(2) + " K";
+    return String(Math.round(n));
+  }
+
   function fmtUptime(sec){
     var n = Number(sec);
     if(!Number.isFinite(n) || n <= 0) return "—";
@@ -612,7 +631,7 @@ app.get("/", (req, res) => {
       right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
       right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
       right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
-      right += row("Best Diff", (bestDiff==null ? "—" : fmtInt(bestDiff)), false);
+      right += row("Best Diff", (bestDiff==null ? "—" : fmtAbbr(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
       // LAST 4: Pool / Port / User / Coin
@@ -622,7 +641,7 @@ app.get("/", (req, res) => {
         var eR = "";
 
         if(poolUrl)  eL += row("Pool", esc(poolUrl), true);
-        if(poolPort != null) eR += row("Port", fmtInt(poolPort), false);
+        if(poolPort != null) eR += row("Port", fmtPlainInt(poolPort), false);
 
         if(poolUser){
           var addr = String(poolUser);
