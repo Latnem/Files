@@ -296,6 +296,32 @@ app.get("/", (req, res) => {
   .hashNum{ color:var(--accent2) }
   .tempNum{ color:var(--accent) }
 
+
+  /* Pool/Port/User/Coin block inside hero */
+  .poolBlock{
+    grid-column: 1 / -1;
+    margin-top:6px;
+    padding-top:8px;
+    border-top:1px dashed rgba(29,43,56,.14);
+  }
+  [data-theme="dark"] .poolBlock{ border-top-color: rgba(138,162,162,.18); }
+
+  .poolGrid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:6px 14px;
+  }
+  .metaRow{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    font-size:12px;
+  }
+  .mk{ color:var(--mut); font-weight:950; }
+  .mv{ font-weight:1000; text-align:right; overflow-wrap:anywhere; word-break:break-word; }
+  .mv.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+
   .twoCol{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .col{ display:flex; flex-direction:column; }
 
@@ -399,24 +425,24 @@ app.get("/", (req, res) => {
     <div class="topStats">
       <div class="stat">
         <div class="k">Total Hash</div>
-        <div class="v" id="sumHash">—</div>
-        <div class="s" id="sumHashSub">—</div>
+        <div class="v" id="sumHash">â€”</div>
+        <div class="s" id="sumHashSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Shares</div>
-        <div class="v" id="sumShares">—</div>
-        <div class="s" id="sumSharesSub">—</div>
+        <div class="v" id="sumShares">â€”</div>
+        <div class="s" id="sumSharesSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Avg Temp</div>
-        <div class="v" id="avgTemp">—</div>
-        <div class="s" id="avgTempSub">—</div>
+        <div class="v" id="avgTemp">â€”</div>
+        <div class="s" id="avgTempSub">â€”</div>
       </div>
     </div>
 
     <div class="panelBox">
       <div class="panelTitle">
-        <h2>Hashrate (TH/s) + ASIC Temp (°C)</h2>
+        <h2>Hashrate (TH/s) + ASIC Temp (Â°C)</h2>
         <div class="seg" id="rangeSeg" aria-label="Chart range">
           <button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button>
           <button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button>
@@ -466,14 +492,14 @@ app.get("/", (req, res) => {
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return n.toFixed(d);
   }
 
   // COMMA FORMATTING
   function fmtInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return Math.round(n).toLocaleString("en-US");
   }
 
@@ -481,14 +507,14 @@ app.get("/", (req, res) => {
   // NO COMMA FORMATTING (ports, ids)
   function fmtPlainInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return String(Math.round(n));
   }
 
   // ABBREVIATED NUMBER (K / M / B) for Best Diff display
   function fmtAbbr(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     var abs = Math.abs(n);
     if(abs >= 1e9) return (n/1e9).toFixed(2) + " B";
     if(abs >= 1e6) return (n/1e6).toFixed(2) + " M";
@@ -498,13 +524,13 @@ app.get("/", (req, res) => {
 
   function fmtUptime(sec){
     var n = Number(sec);
-    if(!Number.isFinite(n) || n <= 0) return "—";
+    if(!Number.isFinite(n) || n <= 0) return "â€”";
     var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return d+"d "+h+"h "+m+"m";
   }
 
   function timeAgo(ts){
-    if(!ts) return "—";
+    if(!ts) return "â€”";
     var diff = Math.max(0, Date.now()-ts);
     var s = Math.floor(diff/1000);
     if(s<60) return s+"s";
@@ -533,12 +559,12 @@ app.get("/", (req, res) => {
   function renderTopSummary(){
     var miners = state.miners || [];
     if(!miners.length){
-      $("sumHash").textContent = "—";
-      $("sumHashSub").textContent = "—";
-      $("sumShares").textContent = "—";
-      $("sumSharesSub").textContent = "—";
-      $("avgTemp").textContent = "—";
-      $("avgTempSub").textContent = "—";
+      $("sumHash").textContent = "â€”";
+      $("sumHashSub").textContent = "â€”";
+      $("sumShares").textContent = "â€”";
+      $("sumSharesSub").textContent = "â€”";
+      $("avgTemp").textContent = "â€”";
+      $("avgTempSub").textContent = "â€”";
       return;
     }
 
@@ -565,14 +591,14 @@ app.get("/", (req, res) => {
       if(t != null){ tempSum += t; tempCount++; }
     }
 
-    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
-    $("sumHashSub").textContent = onlineCount + " online · " + miners.length + " total";
+    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
+    $("sumHashSub").textContent = onlineCount + " online Â· " + miners.length + " total";
 
     $("sumShares").textContent = (acc + rej).toLocaleString("en-US");
-    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " · Rejected " + rej.toLocaleString("en-US");
+    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " Â· Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + "°C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + "Â°C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -580,7 +606,7 @@ app.get("/", (req, res) => {
     var el = $("grid");
     var miners = state.miners || [];
     if(!miners.length){
-      el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
+      el.innerHTML = '<div class="empty">Waiting for agent dataâ€¦</div>';
       return;
     }
 
@@ -621,42 +647,22 @@ app.get("/", (req, res) => {
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
       var left = "";
-      left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
-      left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
-      left += row("Power",      (power==null ? "—" : (fmt(power,1) + " W")), false);
-      left += row("Fan RPM",    (fanRpm==null ? "—" : fmtInt(fanRpm)), false);
+      left += row("Hash (10m)", (hr10m==null ? "â€”" : (fmt(hr10m,2) + " TH/s")), false);
+      left += row("Hash (1h)",  (hr1h==null ? "â€”" : (fmt(hr1h,2) + " TH/s")), false);
+      left += row("Power",      (power==null ? "â€”" : (fmt(power,1) + " W")), false);
+      left += row("Fan RPM",    (fanRpm==null ? "â€”" : fmtInt(fanRpm)), false);
       left += row("Uptime",     fmtUptime(uptime), false);
 
       var right = "";
-      right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
-      right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
-      right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
-      right += row("Best Diff", (bestDiff==null ? "—" : fmtAbbr(bestDiff)), false);
+      right += row("Accepted", (accepted==null ? "â€”" : fmtInt(accepted)), false);
+      right += row("Rejected", (rejected==null ? "â€”" : fmtInt(rejected)), false);
+      right += row("Efficiency", (eff==null ? "â€”" : (fmt(eff,2) + " J/TH")), false);
+      right += row("Best Diff", (bestDiff==null ? "â€”" : fmtAbbr(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
-      // LAST 4: Pool / Port / User / Coin
+      // Pool/Port/User/Coin now shown inside hero
       var extraHtml = "";
-      if(poolUrl || poolPort != null || poolUser || coin){
-        var eL = "";
-        var eR = "";
 
-        if(poolUrl)  eL += row("Pool", esc(poolUrl), true);
-        if(poolPort != null) eR += row("Port", fmtPlainInt(poolPort), false);
-
-        if(poolUser){
-          var addr = String(poolUser);
-          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-          eL += row("User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
-        }
-
-        if(coin) eR += row("Coin", esc(coin), false);
-
-        extraHtml =
-          '<div class="twoCol" style="margin-top:10px">' +
-            '<div class="col">' + eL + '</div>' +
-            '<div class="col">' + eR + '</div>' +
-          '</div>';
-      }
 
       out +=
         '<div class="card">' +
@@ -671,19 +677,28 @@ app.get("/", (req, res) => {
           '<div class="hero">' +
             '<div>' +
               '<div class="hk">Current Hashrate</div>' +
-              '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
+              '<div class="hv hashNum">' + (heroHash==null ? "â€”" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
-              '<div class="hk">Chip Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "—" : fmt(heroTemp,1)) + ' °C</div>' +
+              '<div class="hk">ASIC Temperature</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' Â°C</div>' +
             '</div>' +
+            ((poolUrl || poolPort != null || poolUser || coin) ? (
+              '<div class="poolBlock">' +
+                '<div class="poolGrid">' +
+                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || 'â€”') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? 'â€”' : fmtPlainInt(poolPort)) + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + (poolUser ? esc(shortAddr(poolUser)) : 'â€”') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || 'â€”') + '</span></div>' +
+                '</div>' +
+              '</div>'
+            ) : '') +
           '</div>' +
 
           '<div class="twoCol">' +
             '<div class="col">' + left + '</div>' +
             '<div class="col">' + right + '</div>' +
           '</div>' +
-          extraHtml +
         '</div>';
     }
 
@@ -746,7 +761,7 @@ app.get("/", (req, res) => {
     if(hash.length < 2){
       ctx.fillStyle = mut;
       ctx.font = "12px ui-sans-serif,system-ui";
-      ctx.fillText("Waiting for chart data…", padL+10, padT+24);
+      ctx.fillText("Waiting for chart dataâ€¦", padL+10, padT+24);
       return;
     }
 
@@ -810,8 +825,8 @@ app.get("/", (req, res) => {
     ctx.fillText(minH.toFixed(2), 10, padT+h);
 
     ctx.fillStyle = tempLine;
-    ctx.fillText(maxT.toFixed(0)+"°", padL+w+10, padT+12);
-    ctx.fillText(minT.toFixed(0)+"°", padL+w+10, padT+h);
+    ctx.fillText(maxT.toFixed(0)+"Â°", padL+w+10, padT+12);
+    ctx.fillText(minT.toFixed(0)+"Â°", padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
     var leftTime = new Date(minX).toLocaleTimeString([], {
