@@ -484,7 +484,7 @@ function $(id){ return document.getElementById(id); }
   function shortAddr(addr){
     var s = String(addr||"");
     if(s.length >= 22){
-      return s.slice(0,5) + "***" + s.slice(-5);
+      return s.slice(0,5) + "*****" + s.slice(-5);
     }
     return s;
   }
