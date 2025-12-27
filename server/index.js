@@ -591,7 +591,7 @@ app.get("/", (req, res) => {
       var isOn = online(m.last_ts);
 
       var dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
-      var badgeText = isOn ? "Mining" : "Stale";
+      var badgeText = isOn ? "Online" : "Stale";
 
       var hr1m = (x.hashrate1mTh != null) ? x.hashrate1mTh : null;
       var hr10m = (x.hashrate10mTh != null) ? x.hashrate10mTh : null;
