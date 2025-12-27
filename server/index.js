@@ -5,124 +5,87 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1024kb" }));
 
-// =====================
-// AUTH (for /v1/ingest)
-// =====================
-// In Render -> Environment -> API_KEY = "your key"
-// Agent must send: Authorization: Bearer <API_KEY>
 const API_KEY = process.env.API_KEY || "";
 
+// Middleware for authenticating API requests
 function auth(req, res, next) {
-  if (!API_KEY) return next(); // If you didn't set API_KEY, ingest is open
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
-  if (token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
+  if (!API_KEY || token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
   next();
 }
 
-// =====================
-// In-memory data store
-// =====================
-// IMPORTANT: dedupe by stable key (ipv4) so rename does NOT create a new miner
-const minersStore = new Map();
+// In-memory storage for miner data
+let minersStore = new Map();
+let historyStore = new Map();
 
-function safeNum(v) {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
+// Keep history capped per miner
+function clampHistory(key) {
+  const MAX = 2500;
+  const arr = historyStore.get(key) || [];
+  if (arr.length > MAX) historyStore.set(key, arr.slice(arr.length - MAX));
 }
 
-function stableKeyFromMiner(m) {
-  const x = (m && m.metrics) ? m.metrics : {};
-  const ip = x.ipv4 || m.ipv4 || m.ip || null;
-  if (ip) return `ip:${ip}`;
-  const id = m.id || null;
-  if (id) return `id:${id}`;
-  const name = m.name || "unknown";
-  return `name:${name}`;
-}
+// --- API routes ---
 
-function clampHistory(history, maxPoints = 4000) {
-  if (!Array.isArray(history)) return [];
-  return history.length > maxPoints ? history.slice(history.length - maxPoints) : history;
-}
-
-function normalizeMetrics(m = {}) {
-  // Your miner API returns:
-  // power, temp, hashRate, hashRate_1m, hashRate_10m, hashRate_1h, uptimeSeconds, fanrpm,
-  // sharesAccepted, sharesRejected, bestDiff, ipv4, hostname, stratumURL, stratumPort, stratumUser, etc.
-  // Your UI expects:
-  // powerW, asicTempC, hashrateTh, hashrate1mTh, hashrate10mTh, hashrate1hTh, uptimeSec, fanRpm, bestDiff, etc.
-
-  const out = { ...m };
-
-  if (out.powerW == null && out.power != null) out.powerW = out.power;
-  if (out.asicTempC == null && out.temp != null) out.asicTempC = out.temp;
-  if (out.uptimeSec == null && out.uptimeSeconds != null) out.uptimeSec = out.uptimeSeconds;
-  if (out.fanRpm == null && out.fanrpm != null) out.fanRpm = out.fanrpm;
-
-  if (out.hashrateTh == null && out.hashRate != null) out.hashrateTh = out.hashRate;
-  if (out.hashrate1mTh == null && out.hashRate_1m != null) out.hashrate1mTh = out.hashRate_1m;
-  if (out.hashrate10mTh == null && out.hashRate_10m != null) out.hashrate10mTh = out.hashRate_10m;
-  if (out.hashrate1hTh == null && out.hashRate_1h != null) out.hashrate1hTh = out.hashRate_1h;
-
-  return out;
-}
-
-// =====================
-// API endpoints
-// =====================
-app.get("/v1/miners", (req, res) => {
-  res.json({ miners: Array.from(minersStore.values()) });
-});
-
-// Agent posts here
+// Ingest miner data from agent (POST /v1/ingest)
+// IMPORTANT: Dedupe by ipv4 so renaming doesn't create duplicates.
 app.post("/v1/ingest", auth, (req, res) => {
   try {
-    const incoming = (req.body && Array.isArray(req.body.miners)) ? req.body.miners : [];
+    const miners = (req.body && Array.isArray(req.body.miners)) ? req.body.miners : [];
     const now = Date.now();
 
-    for (const raw of incoming) {
-      const metrics = normalizeMetrics(raw.metrics || {});
-      const key = stableKeyFromMiner({ ...raw, metrics });
-      const prev = minersStore.get(key);
+    for (const m of miners) {
+      const metrics = (m && m.metrics) ? m.metrics : {};
+      const ip = String(metrics.ipv4 || "").trim();
 
-      // Merge so "rename" updates existing miner instead of creating new
-      const merged = {
-        key,
-        id: raw.id || prev?.id || key,
-        name: raw.name || prev?.name || metrics.hostname || "Miner",
-        last_ts: now,
-        coin: raw.coin || metrics.coin || prev?.coin || null,
-        metrics: {
-          ...(prev?.metrics || {}),
-          ...metrics,
-          // ensure these exist if Agent sends them
-          stratumURL: metrics.stratumURL ?? prev?.metrics?.stratumURL ?? null,
-          stratumPort: metrics.stratumPort ?? prev?.metrics?.stratumPort ?? null,
-          stratumUser: metrics.stratumUser ?? prev?.metrics?.stratumUser ?? null,
-          coin: raw.coin || metrics.coin || prev?.metrics?.coin || null,
-        },
-        history: clampHistory([
-          ...(Array.isArray(prev?.history) ? prev.history : []),
-          { ts: now, ...metrics }
-        ]),
-      };
+      // Stable identity: prefer IP so renaming doesn't create duplicates.
+      const key = ip ? `ip:${ip}` : String((m && m.id) || "").trim();
+      if (!key) continue;
 
-      minersStore.set(key, merged);
+      const id = String((m && m.id) || (ip ? ip : key)).trim();
+      const name = String((m && m.name) || metrics.hostname || id);
+
+      const tsRaw = metrics.ts;
+      const ts = Number(tsRaw ?? now);
+      const safeTs = Number.isFinite(ts) ? ts : now;
+
+      // Store miner snapshot
+      minersStore.set(key, { key, id, name, last_ts: safeTs, metrics });
+
+      // History
+      const point = { ts: safeTs, ...metrics };
+      const arr = historyStore.get(key) || [];
+      arr.push(point);
+      historyStore.set(key, arr);
+      clampHistory(key);
     }
 
-    res.json({ ok: true, stored: minersStore.size });
+    res.json({ ok: true, count: miners.length, stored: minersStore.size });
   } catch (e) {
     res.status(500).json({ error: "ingest_failed" });
   }
 });
 
-// =====================
-// UI (full embedded HTML)
-// =====================
+// List current miner data (GET /v1/miners)
+app.get("/v1/miners", (req, res) => {
+  const miners = Array.from(minersStore.values())
+    .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id))
+    .map((m) => ({
+      ...m,
+      history: (historyStore.get(m.key) || []).slice(-2500),
+    }));
+
+  res.json({ miners });
+});
+
+// Basic health
+app.get("/health", (req, res) => res.json({ ok: true }));
+
+// UI (single-file HTML)
 app.get("/", (req, res) => {
-  res.setHeader("content-type", "text/html; charset=utf-8");
-  res.send(`<!doctype html>
+  // IMPORTANT: We keep UI in server so Render serves it.
+  res.type("html").send(`<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -452,7 +415,14 @@ app.get("/", (req, res) => {
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle">
+        <h2>Hashrate (TH/s) + ASIC Temp (°C)</h2>
+        <div class="seg" id="rangeSeg" aria-label="Chart range">
+          <button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button>
+          <button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button>
+          <button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button>
+        </div>
+      </div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -493,14 +463,14 @@ app.get("/", (req, res) => {
 
   function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
-  // ===== comma formatting helpers =====
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
     if(!Number.isFinite(n)) return "—";
-    return n.toLocaleString("en-US", { minimumFractionDigits:d, maximumFractionDigits:d });
+    return n.toFixed(d);
   }
 
+  // COMMA FORMATTING
   function fmtInt(v){
     var n = Number(v);
     if(!Number.isFinite(n)) return "—";
@@ -601,7 +571,7 @@ app.get("/", (req, res) => {
       var x = m.metrics || {};
       var isOn = online(m.last_ts);
 
-      var dot = isOn ? '<span class="dot ok"></span>' : '<span class="dot stale"></span>';
+      var dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
       var badgeText = isOn ? "Mining" : "Stale";
 
       var hr1m = (x.hashrate1mTh != null) ? x.hashrate1mTh : null;
@@ -621,11 +591,11 @@ app.get("/", (req, res) => {
       var bestDiff = (x.bestDiff != null) ? x.bestDiff : null;
       var uptime = (x.uptimeSec != null) ? x.uptimeSec : null;
 
-      // Pool fields + Coin (requested)
       var poolUrl  = (x.stratumURL != null) ? x.stratumURL : null;
       var poolPort = (x.stratumPort != null) ? x.stratumPort : null;
       var poolUser = (x.stratumUser != null) ? x.stratumUser : null;
-      var coin = (x.coin != null) ? x.coin : (m.coin != null ? m.coin : null);
+
+      var coin = (m.coin != null) ? m.coin : ((x.coin != null) ? x.coin : null);
 
       var heroHash = (hr1m != null) ? hr1m : hrNow;
       var heroTemp = (chip != null) ? chip : cpu;
@@ -645,36 +615,36 @@ app.get("/", (req, res) => {
       right += row("Best Diff", (bestDiff==null ? "—" : fmtInt(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
-      // LAST 4 INFO: Pool, Port, User, Coin
+      // LAST 4: Pool / Port / User / Coin
       var extraHtml = "";
-      var eL = "";
-      var eR = "";
+      if(poolUrl || poolPort != null || poolUser || coin){
+        var eL = "";
+        var eR = "";
 
-      eL += row("Pool", (poolUrl ? esc(poolUrl) : "—"), true);
-      eR += row("Port", (poolPort != null ? fmtInt(poolPort) : "—"), false);
+        if(poolUrl)  eL += row("Pool", esc(poolUrl), true);
+        if(poolPort != null) eR += row("Port", fmtInt(poolPort), false);
 
-      if(poolUser){
-        var addr = String(poolUser);
-        var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        eL += row("User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
-      } else {
-        eL += row("User", "—", true);
+        if(poolUser){
+          var addr = String(poolUser);
+          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
+          eL += row("User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
+        }
+
+        if(coin) eR += row("Coin", esc(coin), false);
+
+        extraHtml =
+          '<div class="twoCol" style="margin-top:10px">' +
+            '<div class="col">' + eL + '</div>' +
+            '<div class="col">' + eR + '</div>' +
+          '</div>';
       }
-
-      eR += row("Coin", (coin ? esc(coin) : "—"), false);
-
-      extraHtml =
-        '<div class="twoCol" style="margin-top:10px">' +
-          '<div class="col">' + eL + '</div>' +
-          '<div class="col">' + eR + '</div>' +
-        '</div>';
 
       out +=
         '<div class="card">' +
           '<div class="cardTop">' +
             '<div>' +
               '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
-              '<div class="minerSub">' + esc(m.id || "") + '</div>' +
+              '<div class="minerSub">' + esc(m.id) + '</div>' +
             '</div>' +
             '<div class="badge">' + dot + badgeText + '</div>' +
           '</div>' +
@@ -840,7 +810,7 @@ app.get("/", (req, res) => {
         renderCards();
         drawChart();
       })
-      .catch(function(){ });
+      .catch(function(){});
   }
 
   function setRange(ms){
@@ -870,12 +840,10 @@ app.get("/", (req, res) => {
     drawChart();
   }
 
-  // Range segmented
   if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
   if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
   if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
 
-  // Theme segmented
   if($("segLight")) $("segLight").innerHTML = iconSun();
   if($("segDark")) $("segDark").innerHTML = iconMoon();
   if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
@@ -883,11 +851,9 @@ app.get("/", (req, res) => {
 
   window.addEventListener("resize", drawChart);
 
-  // Init theme
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
-  // Init range
   var savedRange = null;
   try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
   if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
@@ -904,8 +870,6 @@ app.get("/", (req, res) => {
 </html>`);
 });
 
-// =====================
-// Start server (Render decides PORT)
-// =====================
+// Start server (Render uses process.env.PORT)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(\`MinerMonitor running on port \${PORT}\`));
+app.listen(PORT, () => console.log("MinerMonitor running on port", PORT));
