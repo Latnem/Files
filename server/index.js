@@ -109,7 +109,7 @@ app.get("/", (req, res) => {
     --c5:#8AA2A2;
 
     /* Light theme default */
-    --bg: rgba(138,162,162,.18);
+    --bg: rgba(55, 79, 109, .92);
     --panel: rgba(255,255,255,.72);
     --panel2: rgba(67,137,129,.14);
     --ink: var(--c3);
