@@ -442,7 +442,7 @@ app.get("/", (req, res) => {
 
     <div class="panelBox">
       <div class="panelTitle">
-        <h2>Hashrate (TH/s) + ASIC Temp (Â°C)</h2>
+        <h2>Hashrate (TH/s) + ASIC Temp  (&#176;C)</h2>
         <div class="seg" id="rangeSeg" aria-label="Chart range">
           <button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button>
           <button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button>
@@ -459,7 +459,9 @@ app.get("/", (req, res) => {
 <script>
   var state = { miners: [], rangeMs: 6*60*60*1000 };
 
-  function $(id){ return document.getElementById(id); }
+  
+  var DEG = String.fromCharCode(176);
+function $(id){ return document.getElementById(id); }
 
   function esc(str){
     return String(str).replace(/[&<>"']/g, function(c){
@@ -592,13 +594,13 @@ app.get("/", (req, res) => {
     }
 
     $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
-    $("sumHashSub").textContent = onlineCount + " online Â· " + miners.length + " total";
+    $("sumHashSub").textContent = onlineCount + " online | " + miners.length + " total";
 
     $("sumShares").textContent = (acc + rej).toLocaleString("en-US");
-    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " Â· Rejected " + rej.toLocaleString("en-US");
+    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " | Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + "Â°C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + " " + DEG + "C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -681,7 +683,7 @@ app.get("/", (req, res) => {
             '</div>' +
             '<div>' +
               '<div class="hk">ASIC Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' Â°C</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' &#176;C</div>' +
             '</div>' +
             ((poolUrl || poolPort != null || poolUser || coin) ? (
               '<div class="poolBlock">' +
@@ -825,8 +827,8 @@ app.get("/", (req, res) => {
     ctx.fillText(minH.toFixed(2), 10, padT+h);
 
     ctx.fillStyle = tempLine;
-    ctx.fillText(maxT.toFixed(0)+"Â°", padL+w+10, padT+12);
-    ctx.fillText(minT.toFixed(0)+"Â°", padL+w+10, padT+h);
+    ctx.fillText(maxT.toFixed(0)+DEG, padL+w+10, padT+12);
+    ctx.fillText(minT.toFixed(0)+DEG, padL+w+10, padT+h);
 
     ctx.fillStyle = mut;
     var leftTime = new Date(minX).toLocaleTimeString([], {
