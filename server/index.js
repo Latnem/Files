@@ -32,37 +32,71 @@ function clampHistory(key) {
 // IMPORTANT: Dedupe by ipv4 so renaming doesn't create duplicates.
 app.post("/v1/ingest", auth, (req, res) => {
   try {
-    const miners = (req.body && Array.isArray(req.body.miners)) ? req.body.miners : [];
     const now = Date.now();
+    const body = req.body;
+
+    // Accept multiple payload shapes from the Agent:
+    // 1) { miners: [ { id, name, metrics } ... ] }
+    // 2) { miner: { id, name, metrics } }
+    // 3) [ { id, name, metrics } ... ]
+    // 4) { id, name, ...metricsFlat }
+    let miners = [];
+    if (body && Array.isArray(body.miners)) miners = body.miners;
+    else if (body && body.miner && typeof body.miner === "object") miners = [body.miner];
+    else if (Array.isArray(body)) miners = body;
+    else if (body && typeof body === "object") miners = [body];
 
     for (const m of miners) {
-      const metrics = (m && m.metrics) ? m.metrics : {};
-      const ip = String(metrics.ipv4 || "").trim();
+      if (!m || typeof m !== "object") continue;
 
-      // Stable identity: prefer IP so renaming doesn't create duplicates.
-      const key = ip ? `ip:${ip}` : String((m && m.id) || "").trim();
+      // Support both nested metrics and flat payloads
+      const metrics = (m.metrics && typeof m.metrics === "object") ? m.metrics : m;
+
+      // Stable identity: prefer IPv4 so renaming doesn't create duplicates
+      const ip = String(metrics.ipv4 || metrics.ip || m.ipv4 || m.ip || "").trim();
+      const key = ip || String(m.id || metrics.id || m.name || metrics.hostname || "").trim();
       if (!key) continue;
 
-      const id = String((m && m.id) || (ip ? ip : key)).trim();
-      const name = String((m && m.name) || metrics.hostname || id);
+      const id = String(m.id || metrics.id || key).trim();
+      const name = String(m.name || metrics.name || metrics.hostname || id).trim();
 
-      const tsRaw = metrics.ts;
-      const ts = Number(tsRaw ?? now);
-      const safeTs = Number.isFinite(ts) ? ts : now;
+      const existing = minersStore.get(key) || { id, name, first_ts: now };
+      const merged = {
+        ...existing,
+        id,
+        name,
+        key,
+        last_ts: now,
+        metrics: {
+          ...existing.metrics,
+          ...metrics,
+          // make sure identity fields are present for UI
+          ipv4: ip || existing.metrics?.ipv4,
+          hostname: metrics.hostname || existing.metrics?.hostname || name,
+        },
+      };
 
-      // Store miner snapshot
-      minersStore.set(key, { key, id, name, last_ts: safeTs, metrics });
+      minersStore.set(key, merged);
 
-      // History
-      const point = { ts: safeTs, ...metrics };
-      const arr = historyStore.get(key) || [];
-      arr.push(point);
-      historyStore.set(key, arr);
+      // History is for charting (per key)
+      const hist = historyStore.get(key) || [];
+      hist.push({
+        ts: now,
+        // Keep the few chart series we graph
+        hashrateTh: metrics.hashRate != null ? (Number(metrics.hashRate) / 1000) : metrics.hashrateTh,
+        hashrate1mTh: metrics.hashRate_1m != null ? (Number(metrics.hashRate_1m) / 1000) : metrics.hashrate1mTh,
+        hashrate10mTh: metrics.hashRate_10m != null ? (Number(metrics.hashRate_10m) / 1000) : metrics.hashrate10mTh,
+        hashrate1hTh: metrics.hashRate_1h != null ? (Number(metrics.hashRate_1h) / 1000) : metrics.hashrate1hTh,
+        asicTempC: metrics.temp != null ? Number(metrics.temp) : metrics.asicTempC,
+        cpuTempC: metrics.temp2 != null ? Number(metrics.temp2) : metrics.cpuTempC,
+      });
+      historyStore.set(key, hist);
       clampHistory(key);
     }
 
-    res.json({ ok: true, count: miners.length, stored: minersStore.size });
+    res.json({ ok: true, ingested: miners.length, miners: minersStore.size });
   } catch (e) {
+    console.error("Ingest error:", e);
     res.status(500).json({ error: "ingest_failed" });
   }
 });
