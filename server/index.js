@@ -297,31 +297,20 @@ app.get("/", (req, res) => {
   .tempNum{ color:var(--accent) }
 
 
-  /* Pool/Port/User/Coin block inside hero */
-  .poolBlock{
-    grid-column: 1 / -1;
-    margin-top:6px;
-    padding-top:8px;
-    border-top:1px dashed rgba(29,43,56,.14);
-  }
-  [data-theme="dark"] .poolBlock{ border-top-color: rgba(138,162,162,.18); }
-
-  .poolGrid{
+  .metaGrid{
     display:grid;
     grid-template-columns:1fr 1fr;
-    gap:6px 14px;
+    gap:8px 14px;
+    margin-top:10px;
+    padding:10px;
+    border-radius:14px;
+    background:var(--panel2);
+    border:1px solid var(--line);
   }
-  .metaRow{
-    display:flex;
-    justify-content:space-between;
-    gap:12px;
-    font-size:12px;
-  }
-  .mk{ color:var(--mut); font-weight:950; }
-  .mv{ font-weight:1000; text-align:right; overflow-wrap:anywhere; word-break:break-word; }
+  .metaRow{ display:flex; justify-content:space-between; gap:10px; }
+  .mk{ color:var(--mut); font-weight:1000; font-size:12px; }
+  .mv{ font-weight:1000; text-align:right; }
   .mv.mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-
-
   .twoCol{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   .col{ display:flex; flex-direction:column; }
 
@@ -442,7 +431,7 @@ app.get("/", (req, res) => {
 
     <div class="panelBox">
       <div class="panelTitle">
-        <h2>Hashrate (TH/s) + ASIC Temp  (&#176;C)</h2>
+        <h2>Hashrate (TH/s) + ASIC Temp (&#176;C)</h2>
         <div class="seg" id="rangeSeg" aria-label="Chart range">
           <button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button>
           <button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button>
@@ -457,11 +446,10 @@ app.get("/", (req, res) => {
 </div>
 
 <script>
+  var DEG = String.fromCharCode(176);
   var state = { miners: [], rangeMs: 6*60*60*1000 };
 
-  
-  var DEG = String.fromCharCode(176);
-function $(id){ return document.getElementById(id); }
+  function $(id){ return document.getElementById(id); }
 
   function esc(str){
     return String(str).replace(/[&<>"']/g, function(c){
@@ -486,6 +474,14 @@ function $(id){ return document.getElementById(id); }
     if(s.length >= 22){
       return s.slice(0,5) + "*****" + s.slice(-5);
     }
+
+  function renderUserLink(addr){
+    if(!addr) return "â€”";
+    var full = String(addr);
+    var href = "https://mempool.space/address/" + encodeURIComponent(full);
+    return \'<a class="addrLink" href="\' + href + \'" target="_blank" rel="noopener noreferrer">\' + esc(shortAddr(full)) + "</a>";
+  }
+
     return s;
   }
 
@@ -600,7 +596,7 @@ function $(id){ return document.getElementById(id); }
     $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " | Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + " " + DEG + "C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + DEG + "C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -662,9 +658,29 @@ function $(id){ return document.getElementById(id); }
       right += row("Best Diff", (bestDiff==null ? "â€”" : fmtAbbr(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
-      // Pool/Port/User/Coin now shown inside hero
+      // LAST 4: Pool / Port / User / Coin
       var extraHtml = "";
+      if(poolUrl || poolPort != null || poolUser || coin){
+        var eL = "";
+        var eR = "";
 
+        if(poolUrl)  eL += row("Pool", esc(poolUrl), true);
+        if(poolPort != null) eR += row("Port", fmtPlainInt(poolPort), false);
+
+        if(poolUser){
+          var addr = String(poolUser);
+          var href = "https://mempool.space/address/" + encodeURIComponent(addr);
+          eL += row("User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
+        }
+
+        if(coin) eR += row("Coin", esc(coin), false);
+
+        extraHtml =
+          '<div class="twoCol" style="margin-top:10px">' +
+            '<div class="col">' + eL + '</div>' +
+            '<div class="col">' + eR + '</div>' +
+          '</div>';
+      }
 
       out +=
         '<div class="card">' +
@@ -685,22 +701,20 @@ function $(id){ return document.getElementById(id); }
               '<div class="hk">ASIC Temperature</div>' +
               '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' &#176;C</div>' +
             '</div>' +
-                        ((poolUrl || poolPort != null || poolUser || coin) ? (
-              '<div class="poolBlock">' +
-                '<div class="poolGrid">' +
-                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || 'â€”') + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? 'â€”' : fmtPlainInt(poolPort)) + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + (poolUser ? (`<a class="addrLink" href="https://mempool.space/address/${encodeURIComponent(poolUser)}" target="_blank" rel="noopener noreferrer">${esc(shortAddr(poolUser))}</a>`) : 'â€”') + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || 'â€”') + '</span></div>' +
-                '</div>' +
-              '</div>'
-            ) : '') +
-'</div>' +
+          '</div>' +
+
+          '<div class="metaGrid">' +
+            '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || 'â€”') + '</span></div>' +
+            '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? 'â€”' : fmtPlainInt(poolPort)) + '</span></div>' +
+            '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + renderUserLink(poolUser) + '</span></div>' +
+            '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || 'â€”') + '</span></div>' +
+          '</div>' +
 
           '<div class="twoCol">' +
             '<div class="col">' + left + '</div>' +
             '<div class="col">' + right + '</div>' +
           '</div>' +
+          extraHtml +
         '</div>';
     }
 
