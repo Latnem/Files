@@ -133,7 +133,7 @@ app.get("/", (req, res) => {
   }
 
   [data-theme="dark"]{
-    --bg: rgba(29,43,56,.92);
+    --bg: rgba(55,82,108,.92);
     --panel: rgba(44,84,68,.35);
     --panel2: rgba(59,87,109,.45);
     --ink: rgba(231,240,240,.95);
