@@ -425,18 +425,18 @@ app.get("/", (req, res) => {
     <div class="topStats">
       <div class="stat">
         <div class="k">Total Hash</div>
-        <div class="v" id="sumHash">—</div>
-        <div class="s" id="sumHashSub">—</div>
+        <div class="v" id="sumHash">â€”</div>
+        <div class="s" id="sumHashSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Shares</div>
-        <div class="v" id="sumShares">—</div>
-        <div class="s" id="sumSharesSub">—</div>
+        <div class="v" id="sumShares">â€”</div>
+        <div class="s" id="sumSharesSub">â€”</div>
       </div>
       <div class="stat">
         <div class="k">Avg Temp</div>
-        <div class="v" id="avgTemp">—</div>
-        <div class="s" id="avgTempSub">—</div>
+        <div class="v" id="avgTemp">â€”</div>
+        <div class="s" id="avgTempSub">â€”</div>
       </div>
     </div>
 
@@ -494,14 +494,14 @@ function $(id){ return document.getElementById(id); }
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return n.toFixed(d);
   }
 
   // COMMA FORMATTING
   function fmtInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return Math.round(n).toLocaleString("en-US");
   }
 
@@ -509,14 +509,14 @@ function $(id){ return document.getElementById(id); }
   // NO COMMA FORMATTING (ports, ids)
   function fmtPlainInt(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     return String(Math.round(n));
   }
 
   // ABBREVIATED NUMBER (K / M / B) for Best Diff display
   function fmtAbbr(v){
     var n = Number(v);
-    if(!Number.isFinite(n)) return "—";
+    if(!Number.isFinite(n)) return "â€”";
     var abs = Math.abs(n);
     if(abs >= 1e9) return (n/1e9).toFixed(2) + " B";
     if(abs >= 1e6) return (n/1e6).toFixed(2) + " M";
@@ -526,13 +526,13 @@ function $(id){ return document.getElementById(id); }
 
   function fmtUptime(sec){
     var n = Number(sec);
-    if(!Number.isFinite(n) || n <= 0) return "—";
+    if(!Number.isFinite(n) || n <= 0) return "â€”";
     var d=Math.floor(n/86400), h=Math.floor((n%86400)/3600), m=Math.floor((n%3600)/60);
     return d+"d "+h+"h "+m+"m";
   }
 
   function timeAgo(ts){
-    if(!ts) return "—";
+    if(!ts) return "â€”";
     var diff = Math.max(0, Date.now()-ts);
     var s = Math.floor(diff/1000);
     if(s<60) return s+"s";
@@ -561,12 +561,12 @@ function $(id){ return document.getElementById(id); }
   function renderTopSummary(){
     var miners = state.miners || [];
     if(!miners.length){
-      $("sumHash").textContent = "—";
-      $("sumHashSub").textContent = "—";
-      $("sumShares").textContent = "—";
-      $("sumSharesSub").textContent = "—";
-      $("avgTemp").textContent = "—";
-      $("avgTempSub").textContent = "—";
+      $("sumHash").textContent = "â€”";
+      $("sumHashSub").textContent = "â€”";
+      $("sumShares").textContent = "â€”";
+      $("sumSharesSub").textContent = "â€”";
+      $("avgTemp").textContent = "â€”";
+      $("avgTempSub").textContent = "â€”";
       return;
     }
 
@@ -593,14 +593,14 @@ function $(id){ return document.getElementById(id); }
       if(t != null){ tempSum += t; tempCount++; }
     }
 
-    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
+    $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "â€”") + " TH/s";
     $("sumHashSub").textContent = onlineCount + " online | " + miners.length + " total";
 
     $("sumShares").textContent = (acc + rej).toLocaleString("en-US");
     $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " | Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
-    $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + " " + DEG + "C");
+    $("avgTemp").textContent = (avg==null ? "â€”" : avg.toFixed(0) + " " + DEG + "C");
     $("avgTempSub").textContent = "from " + tempCount + " miners";
   }
 
@@ -608,7 +608,7 @@ function $(id){ return document.getElementById(id); }
     var el = $("grid");
     var miners = state.miners || [];
     if(!miners.length){
-      el.innerHTML = '<div class="empty">Waiting for agent data…</div>';
+      el.innerHTML = '<div class="empty">Waiting for agent dataâ€¦</div>';
       return;
     }
 
@@ -649,17 +649,17 @@ function $(id){ return document.getElementById(id); }
       var eff = (x.efficiencyJTH != null) ? x.efficiencyJTH : computeEfficiencyJTH(power, heroHash);
 
       var left = "";
-      left += row("Hash (10m)", (hr10m==null ? "—" : (fmt(hr10m,2) + " TH/s")), false);
-      left += row("Hash (1h)",  (hr1h==null ? "—" : (fmt(hr1h,2) + " TH/s")), false);
-      left += row("Power",      (power==null ? "—" : (fmt(power,1) + " W")), false);
-      left += row("Fan RPM",    (fanRpm==null ? "—" : fmtInt(fanRpm)), false);
+      left += row("Hash (10m)", (hr10m==null ? "â€”" : (fmt(hr10m,2) + " TH/s")), false);
+      left += row("Hash (1h)",  (hr1h==null ? "â€”" : (fmt(hr1h,2) + " TH/s")), false);
+      left += row("Power",      (power==null ? "â€”" : (fmt(power,1) + " W")), false);
+      left += row("Fan RPM",    (fanRpm==null ? "â€”" : fmtInt(fanRpm)), false);
       left += row("Uptime",     fmtUptime(uptime), false);
 
       var right = "";
-      right += row("Accepted", (accepted==null ? "—" : fmtInt(accepted)), false);
-      right += row("Rejected", (rejected==null ? "—" : fmtInt(rejected)), false);
-      right += row("Efficiency", (eff==null ? "—" : (fmt(eff,2) + " J/TH")), false);
-      right += row("Best Diff", (bestDiff==null ? "—" : fmtAbbr(bestDiff)), false);
+      right += row("Accepted", (accepted==null ? "â€”" : fmtInt(accepted)), false);
+      right += row("Rejected", (rejected==null ? "â€”" : fmtInt(rejected)), false);
+      right += row("Efficiency", (eff==null ? "â€”" : (fmt(eff,2) + " J/TH")), false);
+      right += row("Best Diff", (bestDiff==null ? "â€”" : fmtAbbr(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
       // Pool/Port/User/Coin now shown inside hero
@@ -679,23 +679,23 @@ function $(id){ return document.getElementById(id); }
           '<div class="hero">' +
             '<div>' +
               '<div class="hk">Current Hashrate</div>' +
-              '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
+              '<div class="hv hashNum">' + (heroHash==null ? "â€”" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
               '<div class="hk">ASIC Temperature</div>' +
-              '<div class="hv tempNum">' + (heroTemp==null ? "—" : fmt(heroTemp,1)) + ' &#176;C</div>' +
+              '<div class="hv tempNum">' + (heroTemp==null ? "â€”" : fmt(heroTemp,1)) + ' &#176;C</div>' +
             '</div>' +
-            ((poolUrl || poolPort != null || poolUser || coin) ? (
+                        ((poolUrl || poolPort != null || poolUser || coin) ? (
               '<div class="poolBlock">' +
                 '<div class="poolGrid">' +
-                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || '—') + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? '—' : fmtPlainInt(poolPort)) + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + (poolUser ? (`<a class="addrLink" href="https://mempool.space/address/${encodeURIComponent(poolUser)}" target="_blank" rel="noopener noreferrer">${esc(shortAddr(poolUser))}</a>`) : '—') + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || '—') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || 'â€”') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? 'â€”' : fmtPlainInt(poolPort)) + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + (poolUser ? (`<a class="addrLink" href="https://mempool.space/address/${encodeURIComponent(poolUser)}" target="_blank" rel="noopener noreferrer">${esc(shortAddr(poolUser))}</a>`) : 'â€”') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || 'â€”') + '</span></div>' +
                 '</div>' +
               '</div>'
             ) : '') +
-          '</div>' +
+'</div>' +
 
           '<div class="twoCol">' +
             '<div class="col">' + left + '</div>' +
@@ -763,7 +763,7 @@ function $(id){ return document.getElementById(id); }
     if(hash.length < 2){
       ctx.fillStyle = mut;
       ctx.font = "12px ui-sans-serif,system-ui";
-      ctx.fillText("Waiting for chart data…", padL+10, padT+24);
+      ctx.fillText("Waiting for chart dataâ€¦", padL+10, padT+24);
       return;
     }
 
