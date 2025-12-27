@@ -1,78 +1,149 @@
-const express = require('express');
-const path = require('path');
+const express = require("express");
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(express.json({ limit: "1024kb" }));
 
-app.use(express.json());
+// ====== AUTH (for /v1/ingest only) ======
+// Set API_KEY in Render environment variables.
+// Agent must send: Authorization: Bearer <API_KEY>
+const API_KEY = process.env.API_KEY || "";
 
-// In-memory store for miner data (using Map to store unique miners by ID)
-let minersStore = new Map();
-
-// Utility function to format numbers with commas (thousands separator)
-function formatNumberWithCommas(number) {
-    if (number == null) return '0';
-    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+function auth(req, res, next) {
+  if (!API_KEY) return next(); // if you didn't set API_KEY, allow ingest (optional)
+  const header = req.headers.authorization || "";
+  const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+  if (token !== API_KEY) return res.status(401).json({ error: "unauthorized" });
+  next();
 }
 
-// Sample endpoint to fetch miner data
-app.get('/v1/miners', (req, res) => {
-    res.json({
-        miners: Array.from(minersStore.values())  // Convert Map to Array for response
-    });
+// ====== In-memory store ======
+// IMPORTANT: use a stable key to prevent duplicates when name/id changes.
+// Best stable key for your setup is ipv4 (10.0.0.187).
+const minersStore = new Map();
+
+// ====== Helpers ======
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtCommaInt(v) {
+  const n = num(v);
+  if (n == null) return "—";
+  return Math.round(n).toLocaleString("en-US");
+}
+
+function fmtCommaFloat(v, decimals = 2) {
+  const n = num(v);
+  if (n == null) return "—";
+  return n.toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+}
+
+function clampHistory(history, maxPoints = 720) {
+  // Keep last N points (e.g., 720 points @ 5s refresh ≈ 1 hour, adjust as you like)
+  if (!Array.isArray(history)) return [];
+  if (history.length <= maxPoints) return history;
+  return history.slice(history.length - maxPoints);
+}
+
+function stableKeyFromMiner(m) {
+  const metrics = (m && m.metrics) ? m.metrics : {};
+  const ip = metrics.ipv4 || m.ipv4 || m.ip || null;
+  if (ip) return `ip:${ip}`;
+  const id = m.id || null;
+  if (id) return `id:${id}`;
+  const name = m.name || "unknown";
+  return `name:${name}`;
+}
+
+function normalizeMetrics(rawMetrics = {}) {
+  // Your miner API returns: power, temp, hashRate_10m, hashRate_1h, sharesAccepted, sharesRejected, stratumURL, stratumPort, stratumUser, ipv4, hostname, etc.
+  // Your UI expects keys like: powerW, asicTempC, hashrate10mTh, hashrate1hTh, hashrateTh, sharesAccepted, sharesRejected, uptimeSec, fanRpm, bestDiff, stratumURL/Port/User, ipv4, coin.
+  // Map what we can safely:
+  const m = rawMetrics || {};
+
+  const out = { ...m };
+
+  // Common renames (don’t delete originals; just add normalized keys)
+  if (out.powerW == null && out.power != null) out.powerW = out.power;
+  if (out.asicTempC == null && out.temp != null) out.asicTempC = out.temp;
+  if (out.uptimeSec == null && out.uptimeSeconds != null) out.uptimeSec = out.uptimeSeconds;
+  if (out.fanRpm == null && out.fanrpm != null) out.fanRpm = out.fanrpm;
+
+  // Hashrate naming normalization
+  if (out.hashrateTh == null && out.hashRate != null) out.hashrateTh = out.hashRate;
+  if (out.hashrate1mTh == null && out.hashRate_1m != null) out.hashrate1mTh = out.hashRate_1m;
+  if (out.hashrate10mTh == null && out.hashRate_10m != null) out.hashrate10mTh = out.hashRate_10m;
+  if (out.hashrate1hTh == null && out.hashRate_1h != null) out.hashrate1hTh = out.hashRate_1h;
+
+  // Best diff
+  if (out.bestDiff == null && out.bestDiff != null) out.bestDiff = out.bestDiff;
+
+  // Pool fields
+  if (out.stratumURL == null && out.stratumURL == null && out.stratumURL !== undefined) out.stratumURL = out.stratumURL;
+  if (out.stratumURL == null && out.stratumURL == null) {
+    if (out.stratumURL == null && out.stratumURL == null && out.stratumURL !== undefined) out.stratumURL = out.stratumURL;
+  }
+  // (Your API already uses stratumURL/stratumPort/stratumUser – so we keep them as-is.)
+
+  return out;
+}
+
+// ====== API ======
+app.get("/v1/miners", (req, res) => {
+  res.json({ miners: Array.from(minersStore.values()) });
 });
 
-// Endpoint to ingest new miner data from the Agent
-app.post('/v1/ingest', (req, res) => {
-    const minerData = req.body.miners;
+app.post("/v1/ingest", auth, (req, res) => {
+  try {
+    const incoming = req.body && Array.isArray(req.body.miners) ? req.body.miners : [];
+    const now = Date.now();
 
-    // Process each miner data
-    minerData.forEach(miner => {
-        // If the miner already exists in the store (based on ID), update the miner
-        if (minersStore.has(miner.id)) {
-            console.log(`Updating data for miner: ${miner.name}`);
-            minersStore.set(miner.id, miner);  // Update the existing miner data
-        } else {
-            console.log(`Adding new miner: ${miner.name}`);
-            minersStore.set(miner.id, miner);  // Add new miner to the store
-        }
-    });
+    for (const rawMiner of incoming) {
+      const metrics = normalizeMetrics(rawMiner.metrics || {});
+      const key = stableKeyFromMiner({ ...rawMiner, metrics });
 
-    // Respond with success
-    res.status(200).json({ message: 'Miner data successfully ingested' });
+      const prev = minersStore.get(key);
+
+      // Keep ONE miner per stable key; renames update name only.
+      const merged = {
+        // stable identity
+        key,
+        id: rawMiner.id || (prev && prev.id) || key,
+        name: rawMiner.name || (prev && prev.name) || metrics.hostname || "Miner",
+        last_ts: now,
+
+        // merge coin (prefer incoming)
+        coin: rawMiner.coin || (metrics.coin) || (prev && prev.coin) || null,
+
+        // merge metrics
+        metrics: {
+          ...(prev && prev.metrics ? prev.metrics : {}),
+          ...metrics,
+          // ensure coin also shows inside metrics for UI convenience
+          coin: rawMiner.coin || metrics.coin || (prev && prev.metrics && prev.metrics.coin) || null,
+        },
+
+        // history for chart
+        history: clampHistory([
+          ...((prev && Array.isArray(prev.history)) ? prev.history : []),
+          { ts: now, ...metrics }
+        ]),
+      };
+
+      minersStore.set(key, merged);
+    }
+
+    res.json({ ok: true, stored: minersStore.size });
+  } catch (e) {
+    res.status(500).json({ error: "ingest_failed" });
+  }
 });
 
-// Optionally clear all miner data (useful for manual resets)
-app.delete('/v1/miners', (req, res) => {
-    minersStore.clear();   // Clears all stored miner data in memory
-    res.json({ message: 'Miner data cleared' });
-});
-
-// Serve static files (e.g., the HTML page) from the 'public' directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Start the server and listen on the specified port
-app.listen(PORT, () => {
-    console.log(`MinerMonitor running on port ${PORT}`);
-});
-
-    <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>MinerMonitor</title>
-</head>
-<body>
-  <h1>MinerMonitor Server is Running!</h1>
-  <p>Use the /v1/miners endpoint to view miner data.</p>
-</body>
-</html>`);
-});
-
-// Start server
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
-(`<!doctype html>
+// ====== UI (your dashboard page) ======
+app.get("/", (req, res) => {
+  res.setHeader("content-type", "text/html; charset=utf-8");
+  res.send(`<!doctype html>
 <html>
 <head>
 <meta charset="utf-8" />
@@ -80,14 +151,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
 <title>MinerMonitor</title>
 
 <style>
-  /* Palette only (derived rgba ok):
-     Teal:       #438981
-     Dark green: #2C5444
-     Navy:       #1D2B38
-     Slate:      #3B576D
-     Light:      #8AA2A2
-  */
-
   :root{
     --c1:#438981;
     --c2:#2C5444;
@@ -95,7 +158,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     --c4:#3B576D;
     --c5:#8AA2A2;
 
-    /* Light theme default */
     --bg: rgba(138,162,162,.18);
     --panel: rgba(255,255,255,.72);
     --panel2: rgba(67,137,129,.14);
@@ -109,9 +171,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     --hashLine: var(--c2);
     --hashFill: rgba(67,137,129,.18);
     --tempLine: var(--c4);
-
-    --ok: var(--c2);
-    --warn: var(--c4);
 
     --btnBg: rgba(255,255,255,.65);
     --btnBd: rgba(29,43,56,.18);
@@ -133,9 +192,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     --hashLine: var(--c5);
     --hashFill: rgba(59,87,109,.45);
     --tempLine: var(--c1);
-
-    --ok: var(--c5);
-    --warn: var(--c1);
 
     --btnBg: rgba(44,84,68,.40);
     --btnBd: rgba(138,162,162,.22);
@@ -169,20 +225,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
   .brand .mark{ color: var(--accent); }
 
   .headRight{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
-
-  .btn{
-    background:var(--btnBg);
-    border:1px solid var(--btnBd);
-    color:var(--ink);
-    border-radius:12px;
-    padding:7px 10px;
-    cursor:pointer;
-    font-weight:900;
-  }
-  .btn.active{
-    border-color: rgba(67,137,129,.55);
-    box-shadow: 0 0 0 2px rgba(67,137,129,.18) inset;
-  }
 
   main{ padding:14px 0 22px 0; display:grid; gap:14px; }
 
@@ -263,10 +305,9 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     white-space:nowrap;
   }
 
-  .dot{width:8px;height:8px;border-radius:999px;display:inline-block;margin-right:6px;transform:translateY(-1px); box-shadow:0 0 0 3px rgba(0,0,0,.06)}
-  .dotOk{background:#238823} /* green */
-  .dotWarn{background:#FC8B03} /* orange */
-  .dotOff{background:#D2222D} /* red */
+  .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; }
+  .dot.ok{ background:#238823; box-shadow:0 0 0 3px rgba(35,136,35,.25); }
+  .dot.stale{ background:#FC8B03; box-shadow:0 0 0 3px rgba(252,139,3,.25); }
 
   .hero{
     display:grid;
@@ -305,7 +346,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     background:var(--panel);
   }
 
-  /* Segmented (icon-only for theme, text for range) */
   .seg{
     display:flex;
     border:1px solid var(--line);
@@ -344,26 +384,9 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
   }
   .addrLink:hover{ text-decoration:underline; }
 
-  /* Prevent long pool address from stretching layout */
   .row .rv, .row .rv a{
     overflow-wrap:anywhere;
     word-break:break-word;
-  }
-
-
-  /* Status dot colors (updated user palette) */
-  .dot{ width:10px; height:10px; border-radius:999px; display:inline-block; margin-right:8px; }
-  .dot.ok{ background:#238823; box-shadow:0 0 0 3px rgba(35,136,35,.25); }   /* green */
-  .dot.stale{ background:#FC8B03; box-shadow:0 0 0 3px rgba(252,139,3,.25); } /* orange */
-  .dot.off{ background:#D2222D; box-shadow:0 0 0 3px rgba(210,34,45,.25); }   /* red */   /* red */   /* bright red */     /* bright red */     /* red */
-
-
-  /* Half-width centered divider inside card */
-  .halfDivider{
-    width:50%;
-    height:1px;
-    background:var(--line);
-    margin:10px auto;
   }
 </style>
 </head>
@@ -404,7 +427,14 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     </div>
 
     <div class="panelBox">
-      <div class="panelTitle"><h2>Hashrate (TH/s) + ASIC Temp (°C)</h2><div class="seg" id="rangeSeg" aria-label="Chart range"><button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button><button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button><button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button></div></div>
+      <div class="panelTitle">
+        <h2>Hashrate (TH/s) + ASIC Temp (°C)</h2>
+        <div class="seg" id="rangeSeg" aria-label="Chart range">
+          <button class="segBtn" type="button" id="rng6" aria-label="6 hours">6h</button>
+          <button class="segBtn" type="button" id="rng12" aria-label="12 hours">12h</button>
+          <button class="segBtn" type="button" id="rng24" aria-label="24 hours">24h</button>
+        </div>
+      </div>
       <canvas id="chart"></canvas>
     </div>
 
@@ -414,7 +444,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
 
 <script>
   var state = { miners: [], rangeMs: 6*60*60*1000 };
-
   function $(id){ return document.getElementById(id); }
 
   function esc(str){
@@ -435,7 +464,6 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     '</svg>';
   }
 
-  
   function shortAddr(addr){
     var s = String(addr||"");
     if(s.length >= 22){
@@ -444,19 +472,19 @@ app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
     return s;
   }
 
-function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
+  function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
 
   function fmt(v, d){
     if (d === undefined) d = 2;
     var n = Number(v);
     if(!Number.isFinite(n)) return "—";
-    return n.toFixed(d);
+    return n.toLocaleString("en-US", { minimumFractionDigits:d, maximumFractionDigits:d });
   }
 
   function fmtInt(v){
     var n = Number(v);
     if(!Number.isFinite(n)) return "—";
-    return String(Math.round(n));
+    return Math.round(n).toLocaleString("en-US");
   }
 
   function fmtUptime(sec){
@@ -479,13 +507,6 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
   function safeNum(v){
     var n = Number(v);
     return Number.isFinite(n) ? n : null;
-  }
-
-  function shortUser(u){
-    if(!u) return null;
-    var s = String(u);
-    if(s.length <= 12) return s;
-    return s.slice(0,6) + "…" + s.slice(-4);
   }
 
   function row(k, vHtml, mono){
@@ -538,8 +559,8 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
     $("sumHash").textContent = (Number.isFinite(totalHash) ? totalHash.toFixed(2) : "—") + " TH/s";
     $("sumHashSub").textContent = onlineCount + " online · " + miners.length + " total";
 
-    $("sumShares").textContent = String(acc + rej);
-    $("sumSharesSub").textContent = "Accepted " + String(acc) + " · Rejected " + String(rej);
+    $("sumShares").textContent = (acc + rej).toLocaleString("en-US");
+    $("sumSharesSub").textContent = "Accepted " + acc.toLocaleString("en-US") + " · Rejected " + rej.toLocaleString("en-US");
 
     var avg = (tempCount ? (tempSum/tempCount) : null);
     $("avgTemp").textContent = (avg==null ? "—" : avg.toFixed(0) + "°C");
@@ -560,7 +581,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       var x = m.metrics || {};
       var isOn = online(m.last_ts);
 
-      var dot = isOn ? '<span class="dot dotOk"></span>' : '<span class="dot dotWarn"></span>';
+      var dot = isOn ? '<span class="dot ok"></span>' : '<span class="dot stale"></span>';
       var badgeText = isOn ? "Mining" : "Stale";
 
       var hr1m = (x.hashrate1mTh != null) ? x.hashrate1mTh : null;
@@ -583,8 +604,7 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       var poolUrl  = (x.stratumURL != null) ? x.stratumURL : null;
       var poolPort = (x.stratumPort != null) ? x.stratumPort : null;
       var poolUser = (x.stratumUser != null) ? x.stratumUser : null;
-
-      var ip = (x.ipv4 != null) ? x.ipv4 : null;
+      var coin     = (x.coin != null) ? x.coin : (m.coin != null ? m.coin : null);
 
       var heroHash = (hr1m != null) ? hr1m : hrNow;
       var heroTemp = (chip != null) ? chip : cpu;
@@ -604,18 +624,20 @@ function online(lastTs){ return (Date.now() - (lastTs||0)) < 60000; }
       right += row("Best Diff", (bestDiff==null ? "—" : fmtInt(bestDiff)), false);
       right += row("Last Seen", timeAgo(m.last_ts), false);
 
+      // EXTRA: Pool / Port / User / Coin (requested)
       var extraHtml = "";
-      if(poolUrl || poolPort != null || poolUser){
-        var eL = "";
-        var eR = "";
-        if(poolUrl)  eL += row("Pool Host", esc(poolUrl), true);
-        if(poolPort != null) eR += row("Pool Port", fmtInt(poolPort), false);
-        if(poolUser){
+      var eL = "", eR = "";
+      if(poolUrl) eL += row("Pool", esc(poolUrl), true);
+      if(poolUser){
         var addr = String(poolUser);
         var href = "https://mempool.space/address/" + encodeURIComponent(addr);
-        eL += row("Pool User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
+        eL += row("User", '<a class="addrLink" href="' + href + '" target="_blank" rel="noopener noreferrer">' + esc(shortAddr(addr)) + "</a>", true);
       }
-extraHtml =
+      if(poolPort != null) eR += row("Port", fmtInt(poolPort), false);
+      if(coin != null) eR += row("Coin", esc(coin), false);
+
+      if(eL || eR){
+        extraHtml =
           '<div class="twoCol" style="margin-top:10px">' +
             '<div class="col">' + eL + '</div>' +
             '<div class="col">' + eR + '</div>' +
@@ -627,14 +649,14 @@ extraHtml =
           '<div class="cardTop">' +
             '<div>' +
               '<div class="minerName">' + esc(m.name || m.id) + '</div>' +
-              '<div class="minerSub">' + esc(m.id) + "" + '</div>' +
+              '<div class="minerSub">' + esc(m.id || "") + '</div>' +
             '</div>' +
             '<div class="badge">' + dot + badgeText + '</div>' +
           '</div>' +
 
           '<div class="hero">' +
             '<div>' +
-              '<div class="hk">Real Hashrate</div>' +
+              '<div class="hk">Current Hashrate</div>' +
               '<div class="hv hashNum">' + (heroHash==null ? "—" : fmt(heroHash,2)) + ' TH/s</div>' +
             '</div>' +
             '<div>' +
@@ -793,7 +815,7 @@ extraHtml =
         renderCards();
         drawChart();
       })
-      .catch(function(){ });
+      .catch(function(){});
   }
 
   function setRange(ms){
@@ -823,12 +845,10 @@ extraHtml =
     drawChart();
   }
 
-  // Range segmented
   if($("rng6")) $("rng6").addEventListener("click", function(){ setRange(6*60*60*1000); });
   if($("rng12")) $("rng12").addEventListener("click", function(){ setRange(12*60*60*1000); });
   if($("rng24")) $("rng24").addEventListener("click", function(){ setRange(24*60*60*1000); });
 
-  // Theme segmented (icon-only)
   if($("segLight")) $("segLight").innerHTML = iconSun();
   if($("segDark")) $("segDark").innerHTML = iconMoon();
   if($("segLight")) $("segLight").addEventListener("click", function(){ applyTheme("light"); });
@@ -836,11 +856,9 @@ extraHtml =
 
   window.addEventListener("resize", drawChart);
 
-  // Init theme
   var saved = localStorage.getItem("mm_theme");
   applyTheme(saved === "dark" ? "dark" : "light");
 
-  // Init range
   var savedRange = null;
   try { savedRange = Number(localStorage.getItem("mm_range")); } catch(e){}
   if(savedRange === 6*60*60*1000 || savedRange === 12*60*60*1000 || savedRange === 24*60*60*1000){
@@ -851,7 +869,12 @@ extraHtml =
   setRange(state.rangeMs);
 
   setInterval(refresh, 5000);
-  refresh();</script>
+  refresh();
+</script>
 </body>
 </html>`);
 });
+
+// ====== Start server (Render uses PORT env var) ======
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => console.log(`MinerMonitor running on port ${PORT}`));
