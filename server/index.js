@@ -690,7 +690,16 @@ function $(id){ return document.getElementById(id); }
                 '<div class="poolGrid">' +
                   '<div class="metaRow"><span class="mk">Pool:</span><span class="mv mono">' + esc(poolUrl || '—') + '</span></div>' +
                   '<div class="metaRow"><span class="mk">Port:</span><span class="mv">' + (poolPort==null ? '—' : fmtPlainInt(poolPort)) + '</span></div>' +
-                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' + (poolUser ? esc(shortAddr(poolUser)) : '—') + '</span></div>' +
+                  '<div class="metaRow"><span class="mk">User:</span><span class="mv mono">' +
+  (poolUser
+    ? '<a class="addrLink" href="https://mempool.space/address/' +
+        encodeURIComponent(poolUser) +
+      '" target="_blank" rel="noopener noreferrer">' +
+        esc(shortAddr(poolUser).replace('***','*****')) +
+      '</a>'
+    : '—'
+  ) +
+'</span></div>' +
                   '<div class="metaRow"><span class="mk">Coin:</span><span class="mv">' + esc(coin || '—') + '</span></div>' +
                 '</div>' +
               '</div>'
